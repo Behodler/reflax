@@ -4,6 +4,3 @@
 [submodule "lib/openzeppelin-contracts"]
 	path = lib/openzeppelin-contracts
 	url = https://github.com/OpenZeppelin/openzeppelin-contracts
-[submodule "lib/UniswapV2PeripheryFoundryFriendly"]
-	path = lib/UniswapV2PeripheryFoundryFriendly
-	url = https://github.com/Behodler/UniswapV2PeripheryFoundryFriendly
