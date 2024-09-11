@@ -30,7 +30,7 @@ struct FarmAccounting {
  * */
 abstract contract AVault is Ownable, ReentrancyGuard {
     Config public config;
-    FarmAccounting accounting;
+    FarmAccounting internal accounting;
     uint constant ONE = 1e18;
 
     constructor(address inputTokenAddress) Ownable(msg.sender) {
@@ -90,21 +90,24 @@ abstract contract AVault is Ownable, ReentrancyGuard {
         _;
     }
 
-    function stake(
-        uint amount
-    ) public validateEntry(amount) updateStakeAccounting nonReentrant {
-        accounting.sharesBalance[msg.sender] += amount;
+    function _stake(
+        uint amount,
+        address staker
+    ) internal validateEntry(amount) updateStakeAccounting nonReentrant {
+        accounting.sharesBalance[staker] += amount;
         accounting.totalShares += amount;
         config.yieldSource.deposit(amount);
+        config.booster.updateOnDeposit(staker);
     }
 
-    function withdraw(
+    function _withdraw(
         uint amount,
+        address staker,
         address recipient,
         bool allowImpermanentLoss
-    ) public updateStakeAccounting nonReentrant {
-        _claim(msg.sender, recipient);
-        accounting.sharesBalance[msg.sender] -= amount;
+    ) internal updateStakeAccounting nonReentrant {
+        _claim(staker, recipient);
+        accounting.sharesBalance[staker] -= amount;
         accounting.totalShares -= amount;
         config.yieldSource.releaseInput(
             recipient,
@@ -113,13 +116,14 @@ abstract contract AVault is Ownable, ReentrancyGuard {
         );
     }
 
-    function claim(
-        address recipient
-    ) public updateStakeAccounting nonReentrant {
-        _claim(msg.sender, recipient);
+    function _claimAndUpdate(
+        address recipient,
+        address claimer
+    ) internal updateStakeAccounting nonReentrant {
+        _claim(claimer, recipient);
     }
 
-    function _claim(address caller, address recipient) internal {
+    function _claim(address caller, address recipient) private {
         uint unclaimedFlax = accounting.unclaimedFlax[caller];
         accounting.unclaimedFlax[caller] = 0;
 
