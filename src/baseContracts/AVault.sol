@@ -7,6 +7,7 @@ import {PriceTilter} from "../PriceTilter.sol";
 import {AYieldSource} from "./AYieldSource.sol";
 import {IBooster} from "./IBooster.sol";
 import "../Errors.sol";
+import "../UtilLibrary.sol";
 
 struct Config {
     IERC20 inputToken;
@@ -35,6 +36,28 @@ abstract contract AVault is Ownable, ReentrancyGuard {
     constructor(address inputTokenAddress) Ownable(msg.sender) {
         //inputToken can never change
         config.inputToken = IERC20(inputTokenAddress);
+    }
+
+    function setConfig(
+        string memory flaxAddress,
+        string memory yieldAddress,
+        string memory boosterAddress
+    ) public onlyOwner {
+        if (!UtilLibrary.isEmptyString(flaxAddress)) {
+            config.flax = IERC20(UtilLibrary.stringToAddress(flaxAddress));
+        }
+
+        if (!UtilLibrary.isEmptyString(yieldAddress)) {
+            config.yieldSource = AYieldSource(
+                UtilLibrary.stringToAddress(yieldAddress)
+            );
+        }
+
+        if (!UtilLibrary.isEmptyString(boosterAddress)) {
+            config.booster = IBooster(
+                UtilLibrary.stringToAddress(boosterAddress)
+            );
+        }
     }
 
     /// @notice invoked on deposit to limit participation. Return true to have no limits
@@ -77,12 +100,17 @@ abstract contract AVault is Ownable, ReentrancyGuard {
 
     function withdraw(
         uint amount,
-        address recipient
+        address recipient,
+        bool allowImpermanentLoss
     ) public updateStakeAccounting nonReentrant {
         _claim(msg.sender, recipient);
         accounting.sharesBalance[msg.sender] -= amount;
         accounting.totalShares -= amount;
-        config.yieldSource.releaseInput(recipient, amount);
+        config.yieldSource.releaseInput(
+            recipient,
+            amount,
+            allowImpermanentLoss
+        );
     }
 
     function claim(
@@ -96,7 +124,10 @@ abstract contract AVault is Ownable, ReentrancyGuard {
         accounting.unclaimedFlax[caller] = 0;
 
         //Eg. Boosted yield from staking in governance
-        uint flaxToTransfer = (config.booster.percentageBoost(caller) * unclaimedFlax) / config.booster.BasisPoints();        
+        uint flaxToTransfer = (config.booster.percentageBoost(
+            caller,
+            unclaimedFlax
+        ) * unclaimedFlax) / config.booster.BasisPoints();
         config.flax.transfer(recipient, flaxToTransfer);
     }
 
@@ -108,7 +139,11 @@ abstract contract AVault is Ownable, ReentrancyGuard {
     function migrateYieldSouce(
         address newYieldSource
     ) public onlyOwner updateStakeAccounting {
-        config.yieldSource.releaseInput(address(this), accounting.totalShares);
+        config.yieldSource.releaseInput(
+            address(this),
+            accounting.totalShares,
+            true
+        );
         config.yieldSource = AYieldSource(newYieldSource);
         config.yieldSource.deposit(accounting.totalShares);
     }

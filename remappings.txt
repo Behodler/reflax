@@ -1,1 +1,5 @@
 @oz_reflax/contracts=lib/openzeppelin-contracts/contracts
+@uniswap_reflax/core=lib/UniswapV2CoreFoundryFriendly/src
+@uniswap_reflax/periphery=lib/UniswapV2PeripheryFoundryFriendly/src
+@uniswap/lib/contracts/libraries/=src/lib/
+@uniswap/v2-core/contracts/=lib/UniswapV2CoreFoundryFriendly/src
