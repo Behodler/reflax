@@ -9,7 +9,7 @@ interface IBooster {
 
     function BasisPoints() external view returns (uint basisPoints);
 
-    function updateOnDeposit(address depositor) external;
+    function updateWeight(address depositor) external;
 
     //TODO: write a function that is called on vault stake that updates weight downards
 }

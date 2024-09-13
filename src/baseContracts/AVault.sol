@@ -97,7 +97,7 @@ abstract contract AVault is Ownable, ReentrancyGuard {
         accounting.sharesBalance[staker] += amount;
         accounting.totalShares += amount;
         config.yieldSource.deposit(amount);
-        config.booster.updateOnDeposit(staker);
+        config.booster.updateWeight(staker);
     }
 
     function _withdraw(
@@ -133,6 +133,7 @@ abstract contract AVault is Ownable, ReentrancyGuard {
             unclaimedFlax
         ) * unclaimedFlax) / config.booster.BasisPoints();
         config.flax.transfer(recipient, flaxToTransfer);
+        config.booster.updateWeight(caller);
     }
 
     /// implement this to create non linear returns. returning parameter makes it linear.

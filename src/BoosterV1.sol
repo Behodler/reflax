@@ -29,7 +29,7 @@ contract BoosterV1 is IBooster {
         return 10_000;
     }
 
-    function updateOnDeposit(address depositor) external {
+    function updateWeight(address depositor) external {
         staker.updateWeight(depositor, 0, 0);
     }
 }

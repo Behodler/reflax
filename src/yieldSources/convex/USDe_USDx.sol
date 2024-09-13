@@ -15,9 +15,9 @@ struct SushiswapConfig {
 }
 
 //index 0 is USDE and index1 is USDC. Remember USDC is 6 decimal places
-interface CRV_pool {
+abstract contract CRV_pool {
     //For USDC in, get_dy(1,0,1e6) returns approx 1e18
-    function get_dy(uint128 i, uint128 j, uint dx) external view returns (uint);
+    function get_dy(uint128 i, uint128 j, uint dx) public virtual view returns (uint);
 
     //remember to approve
     //use above to get_dy and then pass it into exchnage below
@@ -27,39 +27,39 @@ interface CRV_pool {
         uint _dx,
         uint _min_dy,
         address receiver
-    ) external;
+    ) public virtual;
 
     function addLiquidity(
         uint256[] memory _amounts,
         uint256 _minMintAmount,
         address _receiver
-    ) external returns (uint256);
+    ) public virtual returns (uint256);
 
-    function get_balances() external view returns (uint[] memory);
+    function get_balances() public virtual view returns (uint[] memory);
 
-    function totalSupply() external returns (uint);
+    function totalSupply() public virtual view returns (uint);
 
     function remove_liquidity_one_coin(
-        uint256 _token_amount,
-        int128 i,
-        uint256 _min_amount
-    ) external returns (uint256);
+    uint _burn_amount,
+    int128 i ,
+    uint _min_received,
+    address receiver
+    ) public virtual returns (uint256);
 
     function calc_withdraw_one_coin(
         uint256 _burn_amount,
         int128 i
-    ) external view returns (uint256);
+    ) public virtual view returns (uint256);
 }
 
 abstract contract CVX_pool {
-    IERC20 public stakingToken;
 
     function withdraw(
         uint256 _amount,
         bool _claim
-    ) external virtual returns (bool);
+    ) public virtual returns (bool);
 
-    function withdrawAll(bool claim) external virtual;
+    function withdrawAll(bool claim) public virtual;
 
     function getReward(address _account) external virtual;
 }
@@ -170,7 +170,7 @@ contract USDe_USDx is AYieldSource {
         */
         convex.pool.withdraw(amount, true);
         //remove all USDe
-        crvPools.convexPool.remove_liquidity_one_coin(amount,0,0);
+        crvPools.convexPool.remove_liquidity_one_coin(amount,0,0,address(this));
         uint usdeBalance = crvPools.USDe.balanceOf(address(this));
 
         //sell usdeForUSDC
