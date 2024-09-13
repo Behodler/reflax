@@ -147,6 +147,7 @@ abstract contract AYieldSource is Ownable {
         uint assetBalanceBefore = IERC20(inputToken).balanceOf(address(this));
         IERC20(inputToken).transfer(address(this), amount);
         uint assetBalanceAfter = IERC20(inputToken).balanceOf(address(this));
+
         require(
             allowImpermanentLoss ||
                 assetBalanceAfter - assetBalanceBefore > amount,

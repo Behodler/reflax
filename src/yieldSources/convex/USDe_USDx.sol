@@ -61,7 +61,7 @@ abstract contract CVX_pool {
 
     function withdrawAll(bool claim) public virtual;
 
-    function getReward(address _account) external virtual;
+    function getReward(address _account) public virtual;
 }
 
 abstract contract AConvexBooster {

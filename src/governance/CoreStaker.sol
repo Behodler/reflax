@@ -26,6 +26,7 @@ contract CoreStaker is Ownable {
     constructor(address flax, address tokenLockupPlan) Ownable(msg.sender) {
         config.flax = IERC20(flax);
         config.tokenLocker = new HedgeyAdapter(flax, tokenLockupPlan);
+        config.tokenLocker.oneTimeFlaxApprove();
     }
 
     function setConfig(address flax, address hedgeyAdapter) public onlyOwner {
@@ -59,8 +60,25 @@ contract CoreStaker is Ownable {
         uint durationInMonths
     ) public updateLinen(msg.sender) {
         require(durationInMonths > 0, "stake for at least 1 month required.");
-        require(durationInMonths<208, "maximum duration 4 years");
+        require(durationInMonths <= 208, "maximum duration 4 years");
         uint durationInSeconds = durationInMonths * 24 * 60 * 60 * 30;
+        config.flax.transferFrom(
+            msg.sender,
+            address(config.tokenLocker),
+            amount
+        );
+        config.tokenLocker.lock(msg.sender, amount, durationInSeconds);
+        updateWeight(msg.sender, amount, durationInSeconds);
+    }
+
+    function stake_temp(
+        uint amount,
+        uint durationInMonths
+    ) public updateLinen(msg.sender) {
+        require(durationInMonths > 0, "stake for at least 1 month required.");
+        require(durationInMonths <= 208, "maximum duration 4 years");
+        uint durationInSeconds = durationInMonths * 24 * 60 * 60 * 30;
+        //PASSING
         config.flax.transferFrom(
             msg.sender,
             address(config.tokenLocker),
@@ -95,9 +113,11 @@ contract CoreStaker is Ownable {
         uint trueRemainingBalance = config.tokenLocker.remainingBalance(staker);
         uint trueRemainingBalance_kf = trueRemainingBalance / THOUSAND;
         stats.weight = stats.weight == 0 ? stats.weight = 1 : stats.weight;
-        uint reweightedExisting = ((stats.weight *
-            trueRemainingBalance_kf *
-            ONE) / (recordedRemainingBalance_kf)) / ONE;
+  
+        uint reweightedExisting = recordedRemainingBalance_kf > 0
+            ? ((stats.weight * trueRemainingBalance_kf * ONE) /
+                (recordedRemainingBalance_kf)) / ONE
+            : 0;
 
         uint durationInWeeks = durationInSeconds / (7 * 24 * 60 * 60);
         uint newAmount_kf = newAmount / THOUSAND;
