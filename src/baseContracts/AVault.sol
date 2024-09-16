@@ -38,6 +38,11 @@ abstract contract AVault is Ownable, ReentrancyGuard {
         config.inputToken = IERC20(inputTokenAddress);
     }
 
+    function withdrawUnaccountedForToken(address token) public onlyOwner {
+        uint balance = IERC20(token).balanceOf(address(this));
+        IERC20(token).transfer(msg.sender, balance);
+    }
+
     function setConfig(
         string memory flaxAddress,
         string memory yieldAddress,

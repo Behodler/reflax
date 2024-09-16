@@ -16,6 +16,15 @@ struct LinenStats {
     uint remainingBalance;
 }
 
+/*
+When Flax is initially staked, the amount and duration of lock increases the weight. From then on, as Flax is unlocked and withdrawn,
+the weight decreases proportionately. If user locks X for 1 year which increments weight by A and locks X for 6 months which increments weight
+by B where A>B then weight is A+B. From then on, when any withdrawals of size Y takes place where Y<X then weight is scaled down by weight_next = Y/X*(weight_current).
+This is regardless of which bundle is withdrawn. 
+A farm can then give an APY at the beginning of the period based on the initial stake but if any withdrawals happen between farm staking and claiming interest then the farming user
+only gets the reward based on the latest weight. Users should be informed with a message like "APY only applies if flax is staked for the whole farming period"
+One way for a user to get around this is to frequently claim so that everytime they are about to withdraw, they first claim on all farms.
+*/
 contract CoreStaker is Ownable {
     Config public config;
     uint constant ONE = 1 ether;
@@ -23,9 +32,13 @@ contract CoreStaker is Ownable {
     mapping(address => LinenStats) public linenStats;
 
     //note that hedgey already has a deployed tokenlockupplan contract on all major networks
-    constructor(address flax, address tokenLockupPlan) Ownable(msg.sender) {
+    constructor(
+        address flax,
+        address tokenLockupPlan,
+        address vm
+    ) Ownable(msg.sender) {
         config.flax = IERC20(flax);
-        config.tokenLocker = new HedgeyAdapter(flax, tokenLockupPlan);
+        config.tokenLocker = new HedgeyAdapter(flax, tokenLockupPlan, vm);
         config.tokenLocker.oneTimeFlaxApprove();
     }
 
@@ -59,26 +72,16 @@ contract CoreStaker is Ownable {
         uint amount,
         uint durationInMonths
     ) public updateLinen(msg.sender) {
-        require(durationInMonths > 0, "stake for at least 1 month required.");
-        require(durationInMonths <= 208, "maximum duration 4 years");
-        uint durationInSeconds = durationInMonths * 24 * 60 * 60 * 30;
-        config.flax.transferFrom(
-            msg.sender,
-            address(config.tokenLocker),
-            amount
+        require(durationInMonths > 0, "CoreStaker: stake for at least 1 month");
+        require(
+            durationInMonths <= 208,
+            "CoreStaker: maximum stake duration 4 years"
         );
-        config.tokenLocker.lock(msg.sender, amount, durationInSeconds);
-        updateWeight(msg.sender, amount, durationInSeconds);
-    }
-
-    function stake_temp(
-        uint amount,
-        uint durationInMonths
-    ) public updateLinen(msg.sender) {
-        require(durationInMonths > 0, "stake for at least 1 month required.");
-        require(durationInMonths <= 208, "maximum duration 4 years");
+        require(
+            amount % (1000 ether) == 0,
+            "CoreStaker: Staked units must be in thousands of Flax"
+        );
         uint durationInSeconds = durationInMonths * 24 * 60 * 60 * 30;
-        //PASSING
         config.flax.transferFrom(
             msg.sender,
             address(config.tokenLocker),
@@ -112,8 +115,7 @@ contract CoreStaker is Ownable {
         uint recordedRemainingBalance_kf = stats.remainingBalance / THOUSAND;
         uint trueRemainingBalance = config.tokenLocker.remainingBalance(staker);
         uint trueRemainingBalance_kf = trueRemainingBalance / THOUSAND;
-        stats.weight = stats.weight == 0 ? stats.weight = 1 : stats.weight;
-  
+
         uint reweightedExisting = recordedRemainingBalance_kf > 0
             ? ((stats.weight * trueRemainingBalance_kf * ONE) /
                 (recordedRemainingBalance_kf)) / ONE
@@ -123,9 +125,10 @@ contract CoreStaker is Ownable {
         uint newAmount_kf = newAmount / THOUSAND;
         uint newWeight = newAmount_kf * newAmount_kf * durationInWeeks;
 
-        stats.weight =
-            (reweightedExisting * trueRemainingBalance_kf + newWeight) /
-            (trueRemainingBalance_kf + newAmount_kf);
+        stats.weight = (trueRemainingBalance_kf + newAmount_kf > 0)
+            ? (reweightedExisting * trueRemainingBalance_kf + newWeight) /
+                (trueRemainingBalance_kf + newAmount_kf)
+            : 0;
         stats.remainingBalance = trueRemainingBalance + newAmount;
         return stats;
     }
