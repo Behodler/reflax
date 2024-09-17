@@ -30,6 +30,6 @@ contract BoosterV1 is IBooster {
     }
 
     function updateWeight(address depositor) external {
-        staker.updateWeight(depositor, 0, 0);
+        staker.decayExistingWeight(depositor);
     }
 }
