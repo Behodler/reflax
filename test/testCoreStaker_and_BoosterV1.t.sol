@@ -269,6 +269,15 @@ contract testCoreStaker_and_BoosterV1 is Test {
         vm.assertEq(stats_user2.linen, 0);
 
         uint stake_units = 1e21;
+
+        /* 
+        Below there are two users, one who stakes a small amount for long, and one who stakes a large amount for short. 
+        The resultant weight is the same. The weight is a coefficient. In other words, it boosts the amount of linen per staked flax.
+        Since they both get the same linen per flax per second, after a given amount of time, the one with the bigger stake 
+        should have twice as much linen as the one with the smaller.
+        */
+
+        uint MONTH = 30 * 24 * 60 * 60;
         vm.prank(user1);
         staker.stake(50 * stake_units, 4);
 
@@ -286,30 +295,36 @@ contract testCoreStaker_and_BoosterV1 is Test {
             stats_user2.lastUpdatedTimeStamp
         );
 
-        //warp 100 minutes
-        vm.warp(vm.getBlockTimestamp() + 60*60);
+        uint initialBlock = block.number;
+        vm.warp(vm.getBlockTimestamp() + MONTH);
+        vm.roll(initialBlock + 1);
 
         staker.updateLinenBalance(user1);
         staker.updateLinenBalance(user2);
 
-        (stats_user1.lastUpdatedTimeStamp, stats_user1.linen, stats_user1.weight, ) = staker
-            .linenStats(user1);
+        (
+            stats_user1.lastUpdatedTimeStamp,
+            stats_user1.linen,
+            stats_user1.weight,
 
-        (stats_user2.lastUpdatedTimeStamp, stats_user2.linen,stats_user2.weight , ) = staker
-            .linenStats(user2);
+        ) = staker.linenStats(user1);
 
+        (
+            stats_user2.lastUpdatedTimeStamp,
+            stats_user2.linen,
+            stats_user2.weight,
+
+        ) = staker.linenStats(user2);
 
         vm.assertEq(
             stats_user1.lastUpdatedTimeStamp,
             stats_user2.lastUpdatedTimeStamp
         );
 
-        vm.assertEq(stats_user1.weight,stats_user2.weight);
+        vm.assertEq(stats_user1.weight, stats_user2.weight);
         vm.assertGt(stats_user1.linen, 0);
-        vm.assertGt(stats_user2.linen, 0);
 
-        vm.assertEq(stats_user1.linen, stats_user2.linen);
-        vm.assertEq(stats_user1.linen/1000, 0);        
+        vm.assertEq(stats_user1.linen * 2, stats_user2.linen);
     }
 
     function envWithDefault(

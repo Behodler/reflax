@@ -48,25 +48,24 @@ contract CoreStaker is Ownable {
         config.tokenLocker = HedgeyAdapter(hedgeyAdapter);
     }
 
+    event linenDetails(uint minutesSince, uint flaxRemaining, uint weight);
+
     function updateLinenBalance(address staker) public {
+        decayExistingWeight(staker);
         LinenStats memory stats = linenStats[staker];
 
-        uint flaxRemaining = (
-            config.tokenLocker.remainingBalance(staker)
-        ) / TEN;
+        uint flaxRemaining = (config.tokenLocker.remainingBalance(staker)) /
+            ONE;
 
         uint minutesSinceLastUpate = (block.timestamp -
             stats.lastUpdatedTimeStamp) / 60;
         stats.lastUpdatedTimeStamp = block.timestamp;
-
-        stats.linen +=
-            minutesSinceLastUpate *
-            (flaxRemaining + stats.weight);
+        emit linenDetails(minutesSinceLastUpate, flaxRemaining, stats.weight);
+        stats.linen += (minutesSinceLastUpate * (flaxRemaining * stats.weight))/1000;
         linenStats[staker] = stats;
     }
 
     modifier updateLinen(address staker) {
-        decayExistingWeight(staker);
         updateLinenBalance(staker);
         _;
     }
