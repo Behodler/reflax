@@ -25,6 +25,7 @@ A farm can then give an APY at the beginning of the period based on the initial 
 only gets the reward based on the latest weight. Users should be informed with a message like "APY only applies if flax is staked for the whole farming period"
 One way for a user to get around this is to frequently claim so that everytime they are about to withdraw, they first claim on all farms.
 */
+//TODO: safe hedgey withdraw so that you get all your linen.
 contract CoreStaker is Ownable {
     Config public config;
     uint constant ONE = 1 ether;

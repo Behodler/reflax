@@ -4,7 +4,7 @@ import {IERC20, ERC20} from "@oz_reflax/contracts/token/ERC20/ERC20.sol";
 import "forge-std/Test.sol";
 import "../src/governance/CoreStaker.sol";
 import {TokenLockupPlans} from "./mocks/TokenLockupPlans_managed_time.sol";
-
+import {BoosterV1} from "../src/BoosterV1.sol";
 import {HedgeyAdapter} from "../src/governance/HedgeyAdapter.sol";
 
 contract Flax is ERC20 {
@@ -325,6 +325,71 @@ contract testCoreStaker_and_BoosterV1 is Test {
         vm.assertGt(stats_user1.linen, 0);
 
         vm.assertEq(stats_user1.linen * 2, stats_user2.linen);
+    }
+
+    function test_booster_gives_correct_boost_at_all_levels() public {
+        flax.mint(1000_000 ether, user1);
+        BoosterV1 booster = new BoosterV1(address(staker));
+        vm.assertEq(booster.BasisPoints(), 10_000);
+
+        uint lowerThreshold = booster.LOWER_THRESHOLD();
+
+        vm.prank(user1);
+        staker.stake(1000 ether, 12);
+        (, , uint weight, ) = staker.linenStats(user1);
+
+        vm.assertLt(weight, lowerThreshold);
+
+        uint expectedBoosterPercentage = booster.BasisPoints();
+
+        uint boost = booster.percentageBoost(user1, 0); // second parameter isn't used by this booster
+        vm.assertEq(boost, expectedBoosterPercentage);
+        vm.prank(user1);
+        staker.stake(1000 ether, 48);
+
+        (, , weight, ) = staker.linenStats(user1);
+
+        //assert next level up
+        vm.assertGt(weight, lowerThreshold);
+        vm.assertLt(weight, lowerThreshold * 10);
+
+        boost = booster.percentageBoost(user1, 0); // second parameter isn't used by this booster
+
+        expectedBoosterPercentage =
+            booster.BasisPoints() +
+            (((weight - lowerThreshold) * booster.BasisPoints()) /
+                lowerThreshold);
+
+        vm.assertEq(boost, expectedBoosterPercentage);
+        vm.assertLt(boost, booster.BasisPoints() * 2);
+
+        uint stakeAmount = 10_000 ether;
+        uint baseBoostMultiplier = 2;
+        for (
+            uint currentLowerThreshold = lowerThreshold * 10;
+            currentLowerThreshold < booster.HIGHER_THERSHOLD();
+            currentLowerThreshold *= 10
+        ) {
+            uint currentUpperThreshold = currentLowerThreshold * 10;
+
+            vm.prank(user1);
+            staker.stake(stakeAmount, 48);
+            stakeAmount *= 10;
+            (, , weight, ) = staker.linenStats(user1);
+
+            vm.assertGt(weight, currentLowerThreshold);
+            vm.assertLt(weight, currentUpperThreshold);
+
+            expectedBoosterPercentage =
+                (baseBoostMultiplier * booster.BasisPoints()) +
+                (((weight - currentLowerThreshold) * booster.BasisPoints()) /
+                    currentLowerThreshold);
+            boost = booster.percentageBoost(user1, 0); // second parameter isn't used by this booster
+
+            baseBoostMultiplier++;
+            vm.assertEq(boost, expectedBoosterPercentage);
+            vm.assertLt(boost, booster.BasisPoints() * baseBoostMultiplier);
+        }
     }
 
     function envWithDefault(
