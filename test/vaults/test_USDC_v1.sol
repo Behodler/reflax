@@ -217,19 +217,26 @@ contract test_USDC_v1 is Test {
     function testSetup() public {}
 
     function testTokenSizes() public {
+        uint usdcTS_before = USDC.totalSupply();
+        uint usdxTS_before = USDe.totalSupply();
+        uint usdeTS_before = USDx.totalSupply();
+        uint flaxTS_before = Flax.totalSupply();
+
         USDC.mintUnits(1, address(this));
         USDe.mintUnits(1, address(this));
         USDx.mintUnits(1, address(this));
         Flax.mintUnits(1, address(this));
 
-        uint usdcTS = USDC.totalSupply();
-        uint usdxTS = USDe.totalSupply();
-        uint usdeTS = USDx.totalSupply();
-        uint flaxTS = Flax.totalSupply();
+        uint usdcTS_change = USDC.totalSupply() - usdcTS_before;
+        uint usdxTS_change = USDe.totalSupply() - usdxTS_before;
+        uint usdeTS_change = USDx.totalSupply() - usdeTS_before;
+        uint flaxTS_change = Flax.totalSupply() - flaxTS_before;
 
-        vm.assertEq(usdcTS, 1e6);
-        vm.assertEq(usdxTS, 1e18);
-        vm.assertTrue(usdxTS == usdeTS && usdeTS == flaxTS);
+        vm.assertEq(usdcTS_change, 1e6);
+        vm.assertEq(usdxTS_change, 1e18);
+        vm.assertTrue(
+            usdxTS_change == usdeTS_change && usdeTS_change == flaxTS_change
+        );
     }
 
     /*-----------setMaxStake----------------------*/
