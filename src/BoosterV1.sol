@@ -19,32 +19,6 @@ contract BoosterV1 is IBooster {
         4_800_000 = 100_000 for 4 years
         48_000_000 = 1000_000 for 4 years.
 */
-    function percentageBoost_old(
-        address claimant,
-        uint baseFlax
-    ) public view returns (uint boost) {
-        (, , uint weight, ) = staker.linenStats(claimant);
-        uint boostMultiple = 5;
-
-        uint extra = 0;
-        for (
-            uint divider = HIGHER_THERSHOLD;
-            divider >= LOWER_THRESHOLD;
-            divider /= 10
-        ) {
-            if (weight / divider == 0) {
-                boostMultiple--;
-                continue;
-            } else {
-                uint remainder = weight - divider;
-                extra = remainder < divider
-                    ? (remainder * BasisPoints()) / divider
-                    : BasisPoints();
-                break;
-            }
-        }
-        boost = boostMultiple * BasisPoints() + extra;
-    }
 
     //only boosted above 4800 weight.
     function percentageBoost(

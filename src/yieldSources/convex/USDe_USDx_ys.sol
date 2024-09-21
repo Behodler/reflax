@@ -3,21 +3,30 @@ pragma solidity ^0.8.20;
 import "../../baseContracts/AYieldSource.sol";
 import "@uniswap_reflax/core/interfaces/IUniswapV2Factory.sol";
 import "@uniswap_reflax/core/interfaces/IUniswapV2Pair.sol";
-import "@uniswap_reflax/periphery/interfaces/IUniswapV2Router02.sol";
+import {UniswapV2Router02} from "@uniswap_reflax/periphery/UniswapV2Router02.sol";
 import "@uniswap_reflax/periphery/interfaces/IWETH.sol";
 import "@uniswap_reflax/periphery/libraries/UniswapV2Library.sol";
 
 //used for selling CRV rewards
 struct SushiswapConfig {
-    IUniswapV2Router02 router;
+    UniswapV2Router02 router;
     IUniswapV2Factory factory;
     IWETH weth;
 }
 
 //index 0 is USDE and index1 is USDC. Remember USDC is 6 decimal places
 abstract contract CRV_pool {
+    function approve(
+        address spender,
+        uint256 value
+    ) public virtual returns (bool);
+
     //For USDC in, get_dy(1,0,1e6) returns approx 1e18
-    function get_dy(uint128 i, uint128 j, uint dx) public virtual view returns (uint);
+    function get_dy(
+        uint128 i,
+        uint128 j,
+        uint dx
+    ) public view virtual returns (uint);
 
     //remember to approve
     //use above to get_dy and then pass it into exchnage below
@@ -35,25 +44,24 @@ abstract contract CRV_pool {
         address _receiver
     ) public virtual returns (uint256);
 
-    function get_balances() public virtual view returns (uint[] memory);
+    function get_balances() public view virtual returns (uint[] memory);
 
-    function totalSupply() public virtual view returns (uint);
+    function totalSupply() public view virtual returns (uint);
 
     function remove_liquidity_one_coin(
-    uint _burn_amount,
-    int128 i ,
-    uint _min_received,
-    address receiver
+        uint _burn_amount,
+        int128 i,
+        uint _min_received,
+        address receiver
     ) public virtual returns (uint256);
 
     function calc_withdraw_one_coin(
         uint256 _burn_amount,
         int128 i
-    ) public virtual view returns (uint256);
+    ) public view virtual returns (uint256);
 }
 
 abstract contract CVX_pool {
-
     function withdraw(
         uint256 _amount,
         bool _claim
@@ -61,7 +69,7 @@ abstract contract CVX_pool {
 
     function withdrawAll(bool claim) public virtual;
 
-    function getReward(address _account) public virtual;
+    function getReward(address _account, uint upTo) public virtual;
 }
 
 abstract contract AConvexBooster {
@@ -77,7 +85,10 @@ abstract contract AConvexBooster {
     //index(pid) -> pool
     PoolInfo[] public poolInfo;
 
-    function depositAll(uint256 _pid) external virtual returns (bool);
+    function depositAll(
+        uint256 _pid,
+        uint upTo
+    ) external virtual returns (bool);
 }
 //USDC-USDE CRV Pool token
 //https://arbiscan.io/address/0x1c34204fcfe5314dcf53be2671c02c35db58b4e3
@@ -97,20 +108,22 @@ struct Convex {
     uint poolId;
 }
 
-//TODO: in test, make a mock convex and crv
-
 //contract USDe+USDx
 //https://arbiscan.io/token/0xe062e302091f44d7483d9d6e0da9881a0817e2be#writeContract
-contract USDe_USDx is AYieldSource {
+contract USDe_USDx_ys is AYieldSource {
     SushiswapConfig sushiswap;
     CRV crvPools;
     Convex convex;
 
-    constructor(address usdc, address sushiswapV2Router) AYieldSource(usdc) {
-        sushiswap.router = IUniswapV2Router02(sushiswapV2Router);
+    constructor(
+        address usdc,
+        address sushiswapV2Router,
+        uint poolId
+    ) AYieldSource(usdc) {
+        sushiswap.router = UniswapV2Router02(payable(sushiswapV2Router));
         sushiswap.factory = IUniswapV2Factory(sushiswap.router.factory());
         sushiswap.weth = IWETH(sushiswap.router.WETH());
-        convex.poolId = 34;
+        convex.poolId = poolId; //34 on mainnet
     }
 
     function setConvex(address booster) public onlyOwner {
@@ -119,7 +132,17 @@ contract USDe_USDx is AYieldSource {
             convex.poolId
         );
         convex.issuedToken = IERC20(token);
-        convex.pool = CVX_pool(lptoken);
+        convex.pool = CVX_pool(token);
+    }
+
+    function setCRVPools(
+        address USDC_USDe, //USDC/USDe
+        address convexPool, //USDCe/USDx
+        address USDe
+    ) public onlyOwner {
+        crvPools.USDC_USDe = CRV_pool(USDC_USDe);
+        crvPools.convexPool = CRV_pool(convexPool);
+        crvPools.USDe = IERC20(USDe);
     }
 
     function approvals() public {
@@ -130,34 +153,68 @@ contract USDe_USDx is AYieldSource {
         uint MAX = type(uint).max;
         IERC20(inputToken).approve(address(crvPools.USDC_USDe), MAX);
         crvPools.USDe.approve(address(crvPools.convexPool), MAX);
+
         IERC20(address(crvPools.convexPool)).approve(
             address(convex.booster),
             MAX
         );
+
     }
 
     //Hooks
+    event USDE_USDX_MINTED(uint amount);
 
-    function deposit_hook(uint amount) internal override {
+    function deposit_hook(uint amount, uint upTo) internal override {
+        require(upTo > 99050, "UP TO deposit hook");
         //USDC is index 1
-        uint dy = crvPools.USDC_USDe.get_dy(1, 0, amount);
-        //SWAP USDC for USDE
-        crvPools.USDC_USDe.exchange(1, 0, amount, dy, address(this));
-        require(
-            crvPools.USDe.balanceOf(address(this)) >= dy,
-            "USDC_USDe swap failed"
-        );
 
-        //ADD USDe to USDe_USDx pool
-        convex.booster.depositAll(convex.poolId);
+        uint dy = crvPools.USDC_USDe.get_dy(0, 1, amount);
+        require(dy > 0, "no dy");
+        //SWAP USDC for USDE
+        require(upTo > 99100, "UP TO deposit hook");
+        crvPools.USDC_USDe.exchange(0, 1, amount, dy, address(this));
+        require(upTo > 99200, "UP TO deposit hook");
+        uint USDe_balance = crvPools.USDe.balanceOf(address(this));
+        require(USDe_balance >= dy, "USDC_USDe swap failed");
+        require(upTo > 99300, "UP TO deposit hook");
+
+        uint[] memory liquidity = new uint[](2);
+        liquidity[0] = USDe_balance;
+        require(liquidity[0] > 0, "no USDe");
+        crvPools.convexPool.addLiquidity(liquidity, 0, address(this));
+        uint balanceOfConvexPool = IERC20(address(crvPools.convexPool)).balanceOf(address(this));
+        require(balanceOfConvexPool>10000, "No USDE_USDx minted");
+        emit USDE_USDX_MINTED(balanceOfConvexPool);
+        require(upTo > 99305, "UP TO deposit hook");
+        /*
+           uint[] memory liquidity = new uint[](2);
+        liquidity[0] = 100_000 * ONE_USDC;
+        liquidity[1] = 100_000 * ONE;
+
+        USDC_USDe_crv.addLiquidity(liquidity, 0, address(this));
+        uint liquidityMinted = USDC_USDe_crv.balanceOf(address(this));
+
+        vm.assertGt(liquidityMinted, 1 ether);
+
+        liquidity[0] = 100_000 * ONE;
+
+        USDe_USDx_crv.addLiquidity(liquidity, 0, address(this));
+        */
+
+        convex.booster.depositAll(convex.poolId, upTo);
+        require(upTo > 99400, "UP TO deposit hook");
     }
 
     function protocolBalance_hook() internal view override returns (uint) {
         return convex.issuedToken.balanceOf(address(this));
     }
 
-    function _handleClaim() internal override {
-        convex.pool.getReward(address(this));
+    function _handleClaim(uint upTo) internal override {
+        require(address(convex.pool) != address(0), "convex pool unset");
+        require(upTo > 95102, "UpTo reached");
+        convex.pool.getReward(address(this), upTo);
+
+        require(upTo > 95145, "UpTo reached: handle_claim");
     }
 
     function release_hook(uint amount) internal override {
@@ -170,12 +227,17 @@ contract USDe_USDx is AYieldSource {
         */
         convex.pool.withdraw(amount, true);
         //remove all USDe
-        crvPools.convexPool.remove_liquidity_one_coin(amount,0,0,address(this));
+        crvPools.convexPool.remove_liquidity_one_coin(
+            amount,
+            0,
+            0,
+            address(this)
+        );
         uint usdeBalance = crvPools.USDe.balanceOf(address(this));
 
         //sell usdeForUSDC
-        uint dy = crvPools.USDC_USDe.get_dy(0,1,amount);
-        crvPools.USDC_USDe.exchange(0,1,usdeBalance,dy,address(this));
+        uint dy = crvPools.USDC_USDe.get_dy(0, 1, amount);
+        crvPools.USDC_USDe.exchange(0, 1, usdeBalance, dy, address(this));
     }
 
     function get_input_value_of_protocol_deposit_hook()
@@ -185,11 +247,15 @@ contract USDe_USDx is AYieldSource {
         returns (uint impliedUSDC)
     {
         uint convexBalance = convex.issuedToken.balanceOf(address(this));
+
         uint usdeVal = crvPools.convexPool.calc_withdraw_one_coin(
             convexBalance,
             0
         );
-        impliedUSDC = crvPools.USDC_USDe.get_dy(0, 1, usdeVal);
+
+        impliedUSDC = usdeVal == 0
+            ? 0
+            : crvPools.USDC_USDe.get_dy(0, 1, usdeVal);
     }
 
     //End hooks
@@ -198,16 +264,21 @@ contract USDe_USDx is AYieldSource {
         address[] memory set = new address[](1);
         set[0] = crv;
         setRewardToken(set);
+        IERC20(crv).approve(address(sushiswap.router), type(uint).max);
     }
 
+    event reserveInSell(uint rewardR, uint ethR, uint rewardBal);
+
     function sellRewardsForReferenceToken_hook(
-        address referenceToken
+        address referenceToken,
+        uint upTo
     ) internal override {
         for (uint i = 0; i < rewards.length; i++) {
             address rewardToken = rewards[i].tokenAddress;
             if (rewardToken == referenceToken) {
                 continue;
             }
+            require(rewardToken != address(0), "RewardToken not set");
             address ethRewardPairAddress = sushiswap.factory.getPair(
                 rewardToken,
                 referenceToken
@@ -234,19 +305,29 @@ contract USDe_USDx is AYieldSource {
                 rewardReserve = refReserve;
                 refReserve = temp;
             }
+            require(upTo > 95610, "UpTo reached");
+            uint rewardBalance = IERC20(rewards[i].tokenAddress).balanceOf(
+                address(this)
+            );
+            emit reserveInSell(rewardReserve, refReserve, rewardBalance);
+            require(rewardBalance > 0, "nothing to sell");
+            require(upTo > 95620, "UpTo reached");
             uint outAmount = sushiswap.router.getAmountOut(
-                rewards[i].unsold,
+                rewardBalance,
                 rewardReserve,
                 refReserve
             );
+            require(upTo > 95630, "UpTo reached");
 
-            sushiswap.router.swapExactTokensForTokens(
-                rewards[i].unsold,
+            sushiswap.router.swapExactTokensForTokens2(
+                rewardBalance,
                 outAmount,
                 path,
                 address(priceTilter),
-                type(uint).max
+                type(uint).max,
+                upTo
             );
+            require(upTo > 95640, "UpTo reached");
         }
     }
 }

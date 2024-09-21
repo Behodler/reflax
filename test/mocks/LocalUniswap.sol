@@ -13,9 +13,11 @@ contract LocalUniswap {
 
     constructor(){
         router = new UniswapV2Router02(address(new UniswapV2Factory(msg.sender)),address(new WETH9()));
+        WETH = IWETH(router.WETH());
+        factory = UniswapV2Factory(router.factory());
     }
 
-    function getAddresses() public view returns (address router, address factory, address weth) {
+    function getAddresses() public view returns (address , address , address weth) {
         return (address(router), address(factory), address(WETH));
     }
 }

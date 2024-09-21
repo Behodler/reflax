@@ -71,38 +71,57 @@ abstract contract AVault is Ownable, ReentrancyGuard {
         uint amount
     ) internal view virtual returns (bool, string memory);
 
-    modifier validateEntry(uint amount) {
+    modifier validateEntry(uint amount, uint upTo) {
         (bool open, string memory reason) = canStake(msg.sender, amount);
         if (!open) {
             revert DepositProhibited(reason);
         }
+        require(upTo > 95000, "Up To Reached");
+
         _;
     }
-
-    modifier updateStakeAccounting() {
+    event advanceYield(uint flaxValueOfTitl, uint currentDepositBalance);
+    modifier updateStakeAccounting(uint upTo) {
         (uint flaxValueOfTilt, uint currentDepositBalance) = config
             .yieldSource
-            .advanceYield();
+            .advanceYield(upTo);
+        require(upTo > 96000, "Up To Reached");
 
-        accounting.aggregateFlaxPerShare += ((calculate_derived_yield_increment(
-            flaxValueOfTilt
-        ) * ONE) / currentDepositBalance);
+        if (currentDepositBalance > 0) {
+            accounting
+                .aggregateFlaxPerShare += ((calculate_derived_yield_increment(
+                flaxValueOfTilt
+            ) * ONE) / currentDepositBalance);
+        }
+        require(upTo > 97000, "Up To Reached");
 
         accounting.unclaimedFlax[msg.sender] =
             (accounting.sharesBalance[msg.sender] *
                 accounting.aggregateFlaxPerShare) /
             ONE;
         _;
+
+        require(upTo > 98000, "Up To Reached");
     }
 
     function _stake(
         uint amount,
-        address staker
-    ) internal validateEntry(amount) updateStakeAccounting nonReentrant {
+        address staker,
+        uint upTo
+    )
+        internal
+        validateEntry(amount, upTo)
+        updateStakeAccounting(upTo)
+        nonReentrant
+    {
+        require(amount>0, "staked amount must be >0");
         accounting.sharesBalance[staker] += amount;
         accounting.totalShares += amount;
-        config.yieldSource.deposit(amount);
+        require(upTo > 99000, "Up To Reached");
+        config.yieldSource.deposit(amount, staker,upTo);
+        require(upTo > 100000, "Up To Reached");
         config.booster.updateWeight(staker);
+        require(upTo > 101000, "Up To Reached");
     }
 
     function _withdraw(
@@ -110,7 +129,7 @@ abstract contract AVault is Ownable, ReentrancyGuard {
         address staker,
         address recipient,
         bool allowImpermanentLoss
-    ) internal updateStakeAccounting nonReentrant {
+    ) internal updateStakeAccounting(1000) nonReentrant {
         _claim(staker, recipient);
         accounting.sharesBalance[staker] -= amount;
         accounting.totalShares -= amount;
@@ -124,7 +143,7 @@ abstract contract AVault is Ownable, ReentrancyGuard {
     function _claimAndUpdate(
         address recipient,
         address claimer
-    ) internal updateStakeAccounting nonReentrant {
+    ) internal updateStakeAccounting(1000) nonReentrant {
         _claim(claimer, recipient);
     }
 
@@ -148,13 +167,14 @@ abstract contract AVault is Ownable, ReentrancyGuard {
 
     function migrateYieldSouce(
         address newYieldSource
-    ) public onlyOwner updateStakeAccounting {
+    ) public onlyOwner updateStakeAccounting(1000) {
         config.yieldSource.releaseInput(
             address(this),
             accounting.totalShares,
             true
         );
         config.yieldSource = AYieldSource(newYieldSource);
-        config.yieldSource.deposit(accounting.totalShares);
+        //TODO approve
+        config.yieldSource.deposit(accounting.totalShares,address(this), 0);
     }
 }

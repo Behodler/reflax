@@ -7,7 +7,6 @@ import {PriceTilter} from "../PriceTilter.sol";
 import "../UtilLibrary.sol";
 struct RewardToken {
     address tokenAddress;
-    uint unsold;
 }
 
 //maintain a list of reward tokens
@@ -16,7 +15,7 @@ abstract contract AYieldSource is Ownable {
     bool open;
     //Note that inputToken is the user facing input token like eth etc.
     address inputToken;
-    mapping(address => bool) approvedBrokers;
+    mapping(address => bool) approvedVaults;
     //This is the balance from calling claim on underlying protocol: token => amount
     RewardToken[] public rewards;
     PriceTilter priceTilter;
@@ -42,8 +41,8 @@ abstract contract AYieldSource is Ownable {
         string calldata _inputToken,
         string calldata _priceTilter,
         string calldata _protocolName,
-        string calldata brokerToDrop,
-        string calldata brokerToApprove
+        string calldata vaultToDrop,
+        string calldata vaultToApprove
     ) public onlyOwner {
         if (_open < 2) open = _open == 0 ? false : true;
         if (!UtilLibrary.isEmptyString(_protocolName)) {
@@ -59,34 +58,30 @@ abstract contract AYieldSource is Ownable {
                 UtilLibrary.stringToAddress(_priceTilter)
             );
         }
-        if (!UtilLibrary.isEmptyString(brokerToDrop)) {
-            approvedBrokers[UtilLibrary.stringToAddress(brokerToDrop)] = false;
+        if (!UtilLibrary.isEmptyString(vaultToDrop)) {
+            approvedVaults[UtilLibrary.stringToAddress(vaultToDrop)] = false;
         }
 
-        if (!UtilLibrary.isEmptyString(brokerToApprove)) {
-            approvedBrokers[
-                UtilLibrary.stringToAddress(brokerToApprove)
-            ] = true;
+        if (!UtilLibrary.isEmptyString(vaultToApprove)) {
+            approvedVaults[UtilLibrary.stringToAddress(vaultToApprove)] = true;
         }
     }
 
     function setRewardToken(address[] memory rewardTokens) internal {
         for (uint i = 0; i < rewardTokens.length; i++) {
-            rewards.push(
-                RewardToken({tokenAddress: rewardTokens[i], unsold: 0})
-            );
+            rewards.push(RewardToken({tokenAddress: rewardTokens[i]}));
         }
     }
 
-    modifier approvedBroker() {
-        require(approvedBrokers[msg.sender], "Vault not public");
+    modifier approvedVault() {
+        require(approvedVaults[msg.sender], "Vault not public");
         _;
     }
 
     string public underlyingProtocolName; //eg. Convex
 
     //hooks for interacting with underlying protocol.
-    function deposit_hook(uint amount) internal virtual;
+    function deposit_hook(uint amount, uint upTo) internal virtual;
 
     function protocolBalance_hook() internal view virtual returns (uint);
 
@@ -100,27 +95,34 @@ abstract contract AYieldSource is Ownable {
         returns (uint);
 
     function sellRewardsForReferenceToken_hook(
-        address referenceToken
+        address referenceToken,
+        uint upTo
     ) internal virtual;
 
     //increment unclaimedREwards
-    function _handleClaim() internal virtual;
+    function _handleClaim(uint upTo) internal virtual;
 
     //end hooks
 
-    function deposit(uint amount) public approvedBroker {
+    function deposit(
+        uint amount,
+        address staker,
+        uint upTo
+    ) public approvedVault {
         if (!open) {
             revert FundClosed();
         }
-        IERC20(inputToken).transferFrom(msg.sender, address(this), amount);
+        require(upTo > 99001, "Up To Reached");
+        IERC20(inputToken).transferFrom(staker, address(this), amount);
+        require(upTo > 99002, "Up To Reached");
         totalDeposits += amount;
-        deposit_hook(amount);
+        deposit_hook(amount, upTo);
+        require(upTo > 99401, "Up To Reached");
     }
 
-    function advanceYield()
-        public
-        returns (uint flaxValueOfTilt, uint currentDepositBalance)
-    {
+    function advanceYield(
+        uint upTo
+    ) public returns (uint flaxValueOfTilt, uint currentDepositBalance) {
         /*
         1. Claim yield on underlying asset. 
         2. Inspect priceTilter for referenceToken
@@ -129,10 +131,16 @@ abstract contract AYieldSource is Ownable {
         5. Tilter returns flax value of tilt.
         6. Return this to caller 
         */
-        _handleClaim();
+        require(upTo > 95100, "UpToReached");
+        _handleClaim(upTo);
+        require(upTo > 95500, "UpToReached");
+
         address referenceToken = priceTilter.referenceToken();
-        sellRewardsForReferenceToken_hook(referenceToken);
-        flaxValueOfTilt = priceTilter.tilt();
+        require(upTo > 95600, "UpToReached");
+        sellRewardsForReferenceToken_hook(referenceToken, upTo);
+        require(upTo > 95700, "UpToReached");
+        flaxValueOfTilt = priceTilter.tilt(upTo);
+        require(upTo > 95800, "UpToReached");
         return (flaxValueOfTilt, get_input_value_of_protocol_deposit_hook());
     }
 
@@ -140,7 +148,7 @@ abstract contract AYieldSource is Ownable {
         address recipient,
         uint amount,
         bool allowImpermanentLoss
-    ) public approvedBroker {
+    ) public approvedVault {
         uint _redeemRate = redeemRate();
         uint protolUnitsToWithdraw = (amount * _redeemRate) / ONE;
         release_hook(protolUnitsToWithdraw);
