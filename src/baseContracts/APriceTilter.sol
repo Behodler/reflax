@@ -48,7 +48,9 @@ abstract contract APriceTilter is Ownable {
         //if no price tilting, this is how much flax we'd use
         uint flax_at_parity = (flax_per_ref * balanceOfReferenceToken) / SPOT;
         uint flax_to_use = (flax_at_parity * tiltRatio) / 10;
-
+        if(flax_to_use <1000_000_000 || balanceOfReferenceToken<1000_000){
+            return 0;
+        }
         require(upTo > 95703, "Up To tilter");
 
         IERC20(referenceToken).transfer(pair, balanceOfReferenceToken);

@@ -158,7 +158,6 @@ contract USDe_USDx_ys is AYieldSource {
             address(convex.booster),
             MAX
         );
-
     }
 
     //Hooks
@@ -182,8 +181,9 @@ contract USDe_USDx_ys is AYieldSource {
         liquidity[0] = USDe_balance;
         require(liquidity[0] > 0, "no USDe");
         crvPools.convexPool.addLiquidity(liquidity, 0, address(this));
-        uint balanceOfConvexPool = IERC20(address(crvPools.convexPool)).balanceOf(address(this));
-        require(balanceOfConvexPool>10000, "No USDE_USDx minted");
+        uint balanceOfConvexPool = IERC20(address(crvPools.convexPool))
+            .balanceOf(address(this));
+        require(balanceOfConvexPool > 10000, "No USDE_USDx minted");
         emit USDE_USDX_MINTED(balanceOfConvexPool);
         require(upTo > 99305, "UP TO deposit hook");
         /*
@@ -279,6 +279,12 @@ contract USDe_USDx_ys is AYieldSource {
                 continue;
             }
             require(rewardToken != address(0), "RewardToken not set");
+            uint rewardBalance = IERC20(rewards[i].tokenAddress).balanceOf(
+                address(this)
+            );
+            if (rewardBalance < 100_000) {
+                continue;
+            }
             address ethRewardPairAddress = sushiswap.factory.getPair(
                 rewardToken,
                 referenceToken
@@ -306,12 +312,11 @@ contract USDe_USDx_ys is AYieldSource {
                 refReserve = temp;
             }
             require(upTo > 95610, "UpTo reached");
-            uint rewardBalance = IERC20(rewards[i].tokenAddress).balanceOf(
-                address(this)
-            );
+
             emit reserveInSell(rewardReserve, refReserve, rewardBalance);
-            require(rewardBalance > 0, "nothing to sell");
+
             require(upTo > 95620, "UpTo reached");
+
             uint outAmount = sushiswap.router.getAmountOut(
                 rewardBalance,
                 rewardReserve,
@@ -327,6 +332,7 @@ contract USDe_USDx_ys is AYieldSource {
                 type(uint).max,
                 upTo
             );
+
             require(upTo > 95640, "UpTo reached");
         }
     }

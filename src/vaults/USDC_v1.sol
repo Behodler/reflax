@@ -39,9 +39,32 @@ contract USDC_v1 is AVault {
         uint amount
     ) internal view override returns (bool, string memory) {
         if (accounting.totalShares + amount > maxStake) {
-            string memory errorMessage = string (abi.encodePacked(abi.encodePacked("Vault capped at ",maxStake),"USDC"));
+            string memory errorMessage = getMaxStakeError(maxStake);
             return (false, errorMessage);
         }
         return (true, "");
     }
+
+    function uintToString(uint v) internal pure returns (string memory) {
+    if (v == 0) {
+        return "0";
+    }
+    uint maxlength = 78;
+    bytes memory reversed = new bytes(maxlength);
+    uint i = 0;
+    while (v != 0) {
+        uint remainder = v % 10;
+        v = v / 10;
+        reversed[i++] = bytes1(uint8(48 + remainder));
+    }
+    bytes memory s = new bytes(i);
+    for (uint j = 0; j < i; j++) {
+        s[j] = reversed[i - j - 1];
+    }
+    return string(s);
+}
+
+function getMaxStakeError(uint _maxStake) internal pure returns (string memory) {
+    return string(abi.encodePacked("Vault capped at ", uintToString(_maxStake/1000_000), " USDC"));
+}
 }

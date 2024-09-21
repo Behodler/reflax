@@ -237,16 +237,27 @@ contract test_USDC_v1 is Test {
     function testMaxStake() public {
         uint upTo = envWithDefault("DebugUpTo", type(uint).max);
         USDC.approve(address(vault), type(uint).max);
-        require(upTo>100, "up to");
+        require(upTo > 100, "up to");
         vault.stake(7000 * ONE_USDC, upTo);
-        require(upTo < 120000, "Up to in testMaxStake() reached");
-        // vault.stake(2999 * ONE_USDC);
-
-        // vm.expectRevert("Vault capped at 10000 USDC");
-        // vault.stake(2 * ONE_USDC);
+        require(upTo > 120000, "Up to in testMaxStake() reached");
+        vault.stake(2999 * ONE_USDC, upTo);
+        require(
+            upTo > 121000,
+            "Up to in testMaxStake(): about to blow the lid"
+        );
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                DepositProhibited.selector,
+                "Vault capped at 10000 USDC"
+            )
+        );
+        vault.stake(2 * ONE_USDC, upTo);
     }
 
     /*-----------stake----------------------*/
+    function testAccumulateRewards() public {
+        require(false, "NOT IMPLEMENTED");
+    }
 
     /*-----------withdraw----------------------*/
 
