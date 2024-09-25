@@ -2,16 +2,16 @@
 pragma solidity ^0.8.20;
 
 import "./baseContracts/IBooster.sol";
-import "./governance/CoreStaker.sol";
+import {IStaker} from "./governance/CoreStaker.sol";
 
 //For those concerned with the hardcoded numbers below, this contract can be swapped out. It just reflects current conditions at the time of coding.
 contract BoosterV1 is IBooster {
-    CoreStaker staker;
+    IStaker staker;
     uint public constant LOWER_THRESHOLD = 48 * 1000; //minimum Flax staked for maximum time
     uint public constant HIGHER_THERSHOLD = 48 * 1000_000; //close to total supply of Flax currently staked for maximum time
 
     constructor(address coreStaker) {
-        staker = CoreStaker(coreStaker);
+        staker = IStaker(coreStaker);
     }
 
     /* 48000 = 1000 stake for 4 years. So let this be the first threshold. 
@@ -26,6 +26,7 @@ contract BoosterV1 is IBooster {
         uint baseFlax
     ) public view returns (uint boost) {
         (, , uint weight, ) = staker.linenStats(claimant);
+
         boost = BasisPoints();
         if (weight >= LOWER_THRESHOLD) {
             uint boostMultiple = 0;

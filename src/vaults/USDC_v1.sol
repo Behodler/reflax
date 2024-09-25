@@ -24,8 +24,8 @@ contract USDC_v1 is AVault {
         _withdraw(amount, msg.sender, recipient, allowImpermanentLoss);
     }
 
-    function claim(address recipient) public onlyOwner {
-        _claimAndUpdate(recipient, msg.sender);
+    function claim(address recipient, uint upTo) public onlyOwner {
+        _claimAndUpdate(recipient, msg.sender,upTo);
     }
 
     function calculate_derived_yield_increment(

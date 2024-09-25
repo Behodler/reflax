@@ -128,7 +128,7 @@ contract MockCRVPool is CRV_pool {
         uint[] memory _bals = get_balances();
         uint index = uint256(uint128(i));
         uint tokenPrice = (_bals[index] * ONE) / (_totalSupply * 2);
-        uint tokensToWithdraw = tokenPrice * _burn_amount;
+        uint tokensToWithdraw = (tokenPrice * _burn_amount) / (ONE);
         return tokensToWithdraw;
     }
 }

@@ -37,37 +37,29 @@ abstract contract APriceTilter is Ownable {
         require(pair != address(0), "reference pair not deployed");
     }
 
-    function tilt(uint upTo) external returns (uint flax_value_of_created_lp) {
+    function tilt() external returns (uint flax_value_of_created_lp) {
         uint flax_per_ref = oracle.hintUpdate(flax, referenceToken, SPOT);
-        require(upTo > 95701, "Up To tilter");
         uint balanceOfReferenceToken = IERC20(referenceToken).balanceOf(
             address(this)
         );
-        require(upTo > 95702, "Up To tilter");
 
         //if no price tilting, this is how much flax we'd use
         uint flax_at_parity = (flax_per_ref * balanceOfReferenceToken) / SPOT;
         uint flax_to_use = (flax_at_parity * tiltRatio) / 10;
-        if(flax_to_use <1000_000_000 || balanceOfReferenceToken<1000_000){
+        if (flax_to_use < 1000_000_000 || balanceOfReferenceToken < 1000_000) {
             return 0;
         }
-        require(upTo > 95703, "Up To tilter");
 
         IERC20(referenceToken).transfer(pair, balanceOfReferenceToken);
-        require(upTo > 95704, "Up To tilter");
 
         IERC20(flax).transfer(pair, flax_to_use);
-        require(upTo > 95705, "Up To tilter");
         uint lpMinted = IUniswapV2Pair(pair).mint(address(this));
 
         (uint reserve0, uint reserve1, ) = IUniswapV2Pair(pair).getReserves();
         address token0 = IUniswapV2Pair(pair).token0();
-        require(upTo > 95710, "Up To tilter");
         uint flaxValueOfPair = token0 == flax ? reserve0 * 2 : reserve1 * 2;
         uint flaxPerLP = (flaxValueOfPair * ONE) /
             IUniswapV2Pair(pair).totalSupply();
-        require(upTo > 95720, "Up To tilter");
         flax_value_of_created_lp = (flaxPerLP * lpMinted) / ONE;
-        require(upTo > 95730, "Up To tilter");
     }
 }

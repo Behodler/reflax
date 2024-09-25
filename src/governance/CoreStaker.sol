@@ -26,7 +26,23 @@ only gets the reward based on the latest weight. Users should be informed with a
 One way for a user to get around this is to frequently claim so that everytime they are about to withdraw, they first claim on all farms.
 */
 
-contract CoreStaker is Ownable {
+interface IStaker {
+    function linenStats(
+        address a
+    )
+        external
+        view
+        returns (
+            uint lastUpdatedTimeStamp,
+            uint linen, // for voting and whatever else. This can be a foundation for ve
+            uint weight,
+            uint remainingBalance
+        );
+
+    function decayExistingWeight(address staker) external;
+}
+
+contract CoreStaker is IStaker, Ownable {
     Config public config;
     uint constant ONE = 1 ether;
     uint constant THOUSAND = 1000 ether;
@@ -62,7 +78,9 @@ contract CoreStaker is Ownable {
             stats.lastUpdatedTimeStamp) / 60;
         stats.lastUpdatedTimeStamp = block.timestamp;
         emit linenDetails(minutesSinceLastUpate, flaxRemaining, stats.weight);
-        stats.linen += (minutesSinceLastUpate * (flaxRemaining * stats.weight))/1000;
+        stats.linen +=
+            (minutesSinceLastUpate * (flaxRemaining * stats.weight)) /
+            1000;
         linenStats[staker] = stats;
     }
 

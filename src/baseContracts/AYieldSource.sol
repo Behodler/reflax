@@ -90,17 +90,16 @@ abstract contract AYieldSource is Ownable {
 
     function get_input_value_of_protocol_deposit_hook()
         internal
-        view
         virtual
+        view
         returns (uint);
 
     function sellRewardsForReferenceToken_hook(
-        address referenceToken,
-        uint upTo
+        address referenceToken
     ) internal virtual;
 
     //increment unclaimedREwards
-    function _handleClaim(uint upTo) internal virtual;
+    function _handleClaim() internal virtual;
 
     //end hooks
 
@@ -112,17 +111,18 @@ abstract contract AYieldSource is Ownable {
         if (!open) {
             revert FundClosed();
         }
-        require(upTo > 99001, "Up To Reached");
+        // require(upTo > 99001, "Up To Reached");
         IERC20(inputToken).transferFrom(staker, address(this), amount);
-        require(upTo > 99002, "Up To Reached");
+        // require(upTo > 99002, "Up To Reached");
         totalDeposits += amount;
         deposit_hook(amount, upTo);
-        require(upTo > 99401, "Up To Reached");
+        // require(upTo > 99401, "Up To Reached");
     }
 
-    function advanceYield(
-        uint upTo
-    ) public returns (uint flaxValueOfTilt, uint currentDepositBalance) {
+    function advanceYield()
+        public
+        returns (uint flaxValueOfTilt, uint currentDepositBalance)
+    {
         /*
         1. Claim yield on underlying asset. 
         2. Inspect priceTilter for referenceToken
@@ -131,16 +131,10 @@ abstract contract AYieldSource is Ownable {
         5. Tilter returns flax value of tilt.
         6. Return this to caller 
         */
-        require(upTo > 95100, "UpToReached");
-        _handleClaim(upTo);
-        require(upTo > 95500, "UpToReached");
-
+        _handleClaim();
         address referenceToken = priceTilter.referenceToken();
-        require(upTo > 95600, "UpToReached");
-        sellRewardsForReferenceToken_hook(referenceToken, upTo);
-        require(upTo > 95700, "UpToReached");
-        flaxValueOfTilt = priceTilter.tilt(upTo);
-        require(upTo > 95800, "UpToReached");
+        sellRewardsForReferenceToken_hook(referenceToken);
+        flaxValueOfTilt = priceTilter.tilt();
         return (flaxValueOfTilt, get_input_value_of_protocol_deposit_hook());
     }
 

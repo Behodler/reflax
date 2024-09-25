@@ -29,7 +29,7 @@ contract MockCVXPool is CVX_pool, ERC20 {
         _burn(msg.sender, _amount);
         stakedCRV.transferFrom(address(this), msg.sender, _amount);
         if (_claim) {
-            getReward(msg.sender, 19999);
+            getReward(msg.sender);
         }
         return true;
     }
@@ -39,16 +39,11 @@ contract MockCVXPool is CVX_pool, ERC20 {
         withdraw(entireBalance, _claim);
     }
 
-    function getReward(address _account, uint upTo) public override {
+    function getReward(address _account) public override {
         //95100
-        require(upTo > 95105, "UpTo reached");
         uint lastClaim = lastClaimTimestamp[msg.sender];
-        require(upTo > 95110, "UpTo reached");
         lastClaimTimestamp[msg.sender] = block.timestamp;
-        require(upTo > 95120, "UpTo reached");
         uint duration = block.timestamp - lastClaim;
-        require(upTo > 95130, "UpTo reached");
         crvGovernanceToken.mint(_account, duration * (1 ether));
-        require(upTo > 95140, "UpTo reached");
     }
 }

@@ -62,6 +62,7 @@ contract test_USDC_v1 is Test {
     BoosterV1 boosterV1;
     StandardOracle oracle;
     PriceTilter priceTilter;
+    event setupBooster(address boo);
 
     function setUp() public {
         USDC = new Test_Token("USDC", ONE_USDC);
@@ -197,6 +198,7 @@ contract test_USDC_v1 is Test {
 
         if (upTo <= 60) return;
 
+        emit setupBooster(address(boosterV1));
         vault.setConfig(
             UtilLibrary.toAsciiString(address(Flax)),
             UtilLibrary.toAsciiString(address(yieldSource)),
@@ -262,13 +264,58 @@ contract test_USDC_v1 is Test {
     }
 
     /*-----------stake----------------------*/
-    function testAccumulateRewards() public {
-        require(false, "NOT IMPLEMENTED");
-    }
 
     /*-----------withdraw----------------------*/
 
     /*-----------claim----------------------*/
+    function testAccumulateRewards() public {
+        uint upTo = envWithDefault("DebugUpTo", type(uint).max);
+        USDC.approve(address(vault), type(uint).max);
+        require(upTo > 100, "up to");
+        vault.stake(1000 * ONE_USDC, upTo);
+        address user1 = address(0x1);
+        vm.warp(vm.getBlockTimestamp() + 60 * 60);
+
+        uint flaxBalanceBefore = Flax.balanceOf(user1);
+        require(upTo > 100000, "up to");
+        //Vault needs to be topped up because there's no minting on Arbitrum
+        Flax.mintUnits(1000_000, address(vault));
+
+        uint flaxPriceBefore = wethToFlaxRatio();
+        vault.claim(user1, upTo);
+        require(upTo > 110000, "up to test");
+        uint flaxBalanceAfter = Flax.balanceOf(user1);
+        vm.assertGt(flaxBalanceAfter, flaxBalanceBefore);
+        require(upTo > 120000, "up to Test");
+
+        uint flaxPriceAfter = wethToFlaxRatio();
+
+        //this hopefully fails
+        vm.assertGt(flaxPriceAfter, flaxPriceBefore);
+        require(upTo > 130000, "up to Test");
+    }
+
+    //if this number goes up, Flax price is rising
+    function wethToFlaxRatio() private returns (uint) {
+        IUniswapV2Pair referencePair = IUniswapV2Pair(
+            uniswapMaker.factory().getPair(
+                address(Flax),
+                address(uniswapMaker.WETH())
+            )
+        );
+
+        (uint reserve0, uint reserve1, ) = referencePair.getReserves();
+        (address token0, ) = (referencePair.token0(), referencePair.token1());
+        (uint flaxReserve, uint wethReserve) = token0 == address(Flax)
+            ? (reserve0, reserve1)
+            : (reserve1, reserve0);
+
+        return (wethReserve * ONE) / flaxReserve;
+    }
+
+    function claim_with_zero_time_passes() public {
+        require(false, "NOT IMPLEMENTED");
+    }
 
     /*-----------withdrawUnaccountedForToken----------------------*/
 

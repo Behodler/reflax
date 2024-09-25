@@ -14,8 +14,9 @@ struct SushiswapConfig {
     IWETH weth;
 }
 
-//index 0 is USDE and index1 is USDC. Remember USDC is 6 decimal places
+//index 0 is USDC and index1 is USDE. Remember USDC is 6 decimal places
 abstract contract CRV_pool {
+    
     function approve(
         address spender,
         uint256 value
@@ -69,7 +70,7 @@ abstract contract CVX_pool {
 
     function withdrawAll(bool claim) public virtual;
 
-    function getReward(address _account, uint upTo) public virtual;
+    function getReward(address _account) public virtual;
 }
 
 abstract contract AConvexBooster {
@@ -209,12 +210,9 @@ contract USDe_USDx_ys is AYieldSource {
         return convex.issuedToken.balanceOf(address(this));
     }
 
-    function _handleClaim(uint upTo) internal override {
+    function _handleClaim() internal override {
         require(address(convex.pool) != address(0), "convex pool unset");
-        require(upTo > 95102, "UpTo reached");
-        convex.pool.getReward(address(this), upTo);
-
-        require(upTo > 95145, "UpTo reached: handle_claim");
+        convex.pool.getReward(address(this));
     }
 
     function release_hook(uint amount) internal override {
@@ -240,6 +238,12 @@ contract USDe_USDx_ys is AYieldSource {
         crvPools.USDC_USDe.exchange(0, 1, usdeBalance, dy, address(this));
     }
 
+    event get_input_value_of_protocol_deposit_hook_EVENT(
+        uint convexBalance,
+        uint usdeVal,
+        uint impliedUSDC
+    );
+
     function get_input_value_of_protocol_deposit_hook()
         internal
         view
@@ -255,7 +259,8 @@ contract USDe_USDx_ys is AYieldSource {
 
         impliedUSDC = usdeVal == 0
             ? 0
-            : crvPools.USDC_USDe.get_dy(0, 1, usdeVal);
+            : crvPools.USDC_USDe.get_dy(1, 0, usdeVal);
+        
     }
 
     //End hooks
@@ -270,8 +275,7 @@ contract USDe_USDx_ys is AYieldSource {
     event reserveInSell(uint rewardR, uint ethR, uint rewardBal);
 
     function sellRewardsForReferenceToken_hook(
-        address referenceToken,
-        uint upTo
+        address referenceToken
     ) internal override {
         for (uint i = 0; i < rewards.length; i++) {
             address rewardToken = rewards[i].tokenAddress;
@@ -311,29 +315,22 @@ contract USDe_USDx_ys is AYieldSource {
                 rewardReserve = refReserve;
                 refReserve = temp;
             }
-            require(upTo > 95610, "UpTo reached");
 
             emit reserveInSell(rewardReserve, refReserve, rewardBalance);
-
-            require(upTo > 95620, "UpTo reached");
 
             uint outAmount = sushiswap.router.getAmountOut(
                 rewardBalance,
                 rewardReserve,
                 refReserve
             );
-            require(upTo > 95630, "UpTo reached");
 
-            sushiswap.router.swapExactTokensForTokens2(
+            sushiswap.router.swapExactTokensForTokens(
                 rewardBalance,
                 outAmount,
                 path,
                 address(priceTilter),
-                type(uint).max,
-                upTo
+                type(uint).max
             );
-
-            require(upTo > 95640, "UpTo reached");
         }
     }
 }

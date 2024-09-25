@@ -43,6 +43,8 @@ abstract contract AVault is Ownable, ReentrancyGuard {
         IERC20(token).transfer(msg.sender, balance);
     }
 
+    event boosterAddressEvent(address booster);
+
     function setConfig(
         string memory flaxAddress,
         string memory yieldAddress,
@@ -59,9 +61,9 @@ abstract contract AVault is Ownable, ReentrancyGuard {
         }
 
         if (!UtilLibrary.isEmptyString(boosterAddress)) {
-            config.booster = IBooster(
-                UtilLibrary.stringToAddress(boosterAddress)
-            );
+            address boo = UtilLibrary.stringToAddress(boosterAddress);
+            emit boosterAddressEvent(boo);
+            config.booster = IBooster(boo);
         }
     }
 
@@ -71,37 +73,31 @@ abstract contract AVault is Ownable, ReentrancyGuard {
         uint amount
     ) internal view virtual returns (bool, string memory);
 
-    modifier validateEntry(uint amount, uint upTo) {
+    modifier validateEntry(uint amount) {
         (bool open, string memory reason) = canStake(msg.sender, amount);
         if (!open) {
             revert DepositProhibited(reason);
         }
-        require(upTo > 95000, "Up To Reached");
 
         _;
     }
     event advanceYield(uint flaxValueOfTitl, uint currentDepositBalance);
-    modifier updateStakeAccounting(uint upTo) {
+    modifier updateStakeAccounting(address caller) {
         (uint flaxValueOfTilt, uint currentDepositBalance) = config
             .yieldSource
-            .advanceYield(upTo);
-        require(upTo > 96000, "Up To Reached");
-
+            .advanceYield();
+        emit advanceYield(flaxValueOfTilt, currentDepositBalance);
         if (currentDepositBalance > 0) {
             accounting
                 .aggregateFlaxPerShare += ((calculate_derived_yield_increment(
                 flaxValueOfTilt
             ) * ONE) / currentDepositBalance);
         }
-        require(upTo > 97000, "Up To Reached");
-
-        accounting.unclaimedFlax[msg.sender] =
-            (accounting.sharesBalance[msg.sender] *
+        accounting.unclaimedFlax[caller] =
+            (accounting.sharesBalance[caller] *
                 accounting.aggregateFlaxPerShare) /
             ONE;
         _;
-
-        require(upTo > 98000, "Up To Reached");
     }
 
     function _stake(
@@ -110,18 +106,15 @@ abstract contract AVault is Ownable, ReentrancyGuard {
         uint upTo
     )
         internal
-        validateEntry(amount, upTo)
-        updateStakeAccounting(upTo)
+        validateEntry(amount)
+        updateStakeAccounting(staker)
         nonReentrant
     {
-        require(amount>0, "staked amount must be >0");
+        require(amount > 0, "staked amount must be >0");
         accounting.sharesBalance[staker] += amount;
         accounting.totalShares += amount;
-        require(upTo > 99000, "Up To Reached");
-        config.yieldSource.deposit(amount, staker,upTo);
-        require(upTo > 100000, "Up To Reached");
+        config.yieldSource.deposit(amount, staker, upTo);
         config.booster.updateWeight(staker);
-        require(upTo > 101000, "Up To Reached");
     }
 
     function _withdraw(
@@ -129,8 +122,8 @@ abstract contract AVault is Ownable, ReentrancyGuard {
         address staker,
         address recipient,
         bool allowImpermanentLoss
-    ) internal updateStakeAccounting(1000) nonReentrant {
-        _claim(staker, recipient);
+    ) internal updateStakeAccounting(staker) nonReentrant {
+        _claim(staker, recipient, 0);
         accounting.sharesBalance[staker] -= amount;
         accounting.totalShares -= amount;
         config.yieldSource.releaseInput(
@@ -142,22 +135,32 @@ abstract contract AVault is Ownable, ReentrancyGuard {
 
     function _claimAndUpdate(
         address recipient,
-        address claimer
-    ) internal updateStakeAccounting(1000) nonReentrant {
-        _claim(claimer, recipient);
+        address claimer,
+        uint upTo
+    ) internal updateStakeAccounting(claimer) nonReentrant {
+        _claim(claimer, recipient, upTo);
+        require(upTo>105000, "Up to in claimAndUpdate");
     }
 
-    function _claim(address caller, address recipient) private {
+    event bonus_parameters(uint u, address c);
+
+    function _claim(address caller, address recipient, uint upTo) private {
         uint unclaimedFlax = accounting.unclaimedFlax[caller];
         accounting.unclaimedFlax[caller] = 0;
+        require(upTo > 101000, "up to claim");
 
-        //Eg. Boosted yield from staking in governance
+        require(address(config.booster) != address(0), "booster not set");
+        emit bonus_parameters(unclaimedFlax, caller);
         uint flaxToTransfer = (config.booster.percentageBoost(
             caller,
             unclaimedFlax
         ) * unclaimedFlax) / config.booster.BasisPoints();
+        require(upTo > 102000, "up to claim");
+        require(flaxToTransfer > 100, "flax too low");
         config.flax.transfer(recipient, flaxToTransfer);
+        require(upTo > 103000, "up to claim");
         config.booster.updateWeight(caller);
+        require(upTo > 104000, "up to claim");
     }
 
     /// implement this to create non linear returns. returning parameter makes it linear.
@@ -167,7 +170,7 @@ abstract contract AVault is Ownable, ReentrancyGuard {
 
     function migrateYieldSouce(
         address newYieldSource
-    ) public onlyOwner updateStakeAccounting(1000) {
+    ) public onlyOwner updateStakeAccounting(owner()) {
         config.yieldSource.releaseInput(
             address(this),
             accounting.totalShares,
@@ -175,6 +178,6 @@ abstract contract AVault is Ownable, ReentrancyGuard {
         );
         config.yieldSource = AYieldSource(newYieldSource);
         //TODO approve
-        config.yieldSource.deposit(accounting.totalShares,address(this), 0);
+        config.yieldSource.deposit(accounting.totalShares, address(this), 0);
     }
 }
