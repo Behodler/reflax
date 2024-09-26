@@ -1,11 +1,14 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.20;
-import "@reflax/yieldSources/AYieldSource.sol";
-import "@uniswap_reflax/core/interfaces/IUniswapV2Factory.sol";
-import "@uniswap_reflax/core/interfaces/IUniswapV2Pair.sol";
+import {AYieldSource} from "@reflax/yieldSources/AYieldSource.sol";
+import {IUniswapV2Factory}  from "@uniswap_reflax/core/interfaces/IUniswapV2Factory.sol";
+import {IUniswapV2Pair}  from "@uniswap_reflax/core/interfaces/IUniswapV2Pair.sol";
+
 import {UniswapV2Router02} from "@uniswap_reflax/periphery/UniswapV2Router02.sol";
-import "@uniswap_reflax/periphery/interfaces/IWETH.sol";
-import "@uniswap_reflax/periphery/libraries/UniswapV2Library.sol";
+import {IWETH} from "@uniswap_reflax/periphery/interfaces/IWETH.sol";
+import {IERC20} from "@uniswap_reflax/periphery/interfaces/IERC20.sol";
+import "src/Errors.sol";
+import {UniswapV2Library} from "@uniswap_reflax/periphery/libraries/UniswapV2Library.sol";
 
 //used for selling CRV rewards
 struct SushiswapConfig {

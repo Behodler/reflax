@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.20;
 import {IERC20} from "@oz_reflax/contracts/token/ERC20/ERC20.sol";
-import "./HedgeyAdapter.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
-import "@reflax/booster/IBooster.sol";
+import {HedgeyAdapter} from "./HedgeyAdapter.sol";
+import {Ownable} from  "@openzeppelin/contracts/access/Ownable.sol";
+import {IBooster} from "@reflax/booster/IBooster.sol";
 struct Config {
     IERC20 flax;
     HedgeyAdapter tokenLocker;

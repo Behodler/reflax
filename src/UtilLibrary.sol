@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
-import {Vm} from "forge-std/Test.sol";
+import {Vm} from "@forge-std/Test.sol";
 library UtilLibrary {
     function isEmptyString(string memory value) external pure returns (bool) {
         return bytes(value).length == 0;

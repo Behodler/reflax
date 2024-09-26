@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.20;
 
-import "forge-std/Test.sol";
-import "@reflax/vaults/AVault.sol";
+import {Test} from "@forge-std/Test.sol";
+import {AVault} from "@reflax/vaults/AVault.sol";
 import {IERC20, ERC20} from "@oz_reflax/contracts/token/ERC20/ERC20.sol";
 import {MockCRVPool} from "test/mocks/MockCRVPool.sol";
 import {MockCVXPool} from "test/mocks/MockCVXPool.sol";
@@ -15,10 +15,11 @@ import {MockCoreStaker} from "test/mocks/MockCoreStaker.sol";
 import {UtilLibrary} from "src/UtilLibrary.sol";
 import {StandardOracle} from "@reflax/oracle/StandardOracle.sol";
 import {PriceTilter} from "@reflax/priceTilter/PriceTilter.sol";
-import "@uniswap_reflax/core/interfaces/IUniswapV2Factory.sol";
-import "@uniswap_reflax/core/interfaces/IUniswapV2Pair.sol";
+import {IUniswapV2Factory} from "@uniswap_reflax/core/interfaces/IUniswapV2Factory.sol";
+import {IUniswapV2Pair} from "@uniswap_reflax/core/interfaces/IUniswapV2Pair.sol";
 import {IWETH} from "@uniswap_reflax/periphery/interfaces/IWETH.sol";
 import {MockCRVToken} from "test/mocks/MockCRVToken.sol";
+import "src/Errors.sol";
 
 contract Test_Token is ERC20 {
     uint unitSize;
@@ -308,7 +309,6 @@ contract test_USDC_v1 is Test {
         Flax.mintUnits(1000_000, address(vault));
 
         uint flaxBalanceOnVault_before = Flax.balanceOf(address(vault));
-
         uint flaxPriceBefore = wethToFlaxRatio();
         vault.claim(user1, upTo);
 
@@ -323,6 +323,10 @@ contract test_USDC_v1 is Test {
     }
 
     /*-----------withdrawUnaccountedForToken----------------------*/
+
+    function withdrawUnaccountedForToken() public {
+     Test_Token newToken = new Test_Token("unkown",ONE);   
+    }
 
     /*-----------setConfig----------------------*/
 

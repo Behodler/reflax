@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
-import "@oz_reflax/contracts/token/ERC20/IERC20.sol";
+import {IERC20} from "@oz_reflax/contracts/token/ERC20/IERC20.sol";
 
 import {Vm} from "forge-std/Test.sol";
 

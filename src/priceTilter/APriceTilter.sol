@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.20;
-import "@reflax/oracle/IOracle.sol";
+import {IOracle} from "@reflax/oracle/IOracle.sol";
 import {IERC20} from "@oz_reflax/contracts/token/ERC20/ERC20.sol";
-import "@uniswap_reflax/core/interfaces/IUniswapV2Factory.sol";
-import "@uniswap_reflax/core/interfaces/IUniswapV2Pair.sol";
+import {IUniswapV2Factory}  from "@uniswap_reflax/core/interfaces/IUniswapV2Factory.sol";
+import {IUniswapV2Pair}  from "@uniswap_reflax/core/interfaces/IUniswapV2Pair.sol";
 import {Ownable} from "@oz_reflax/contracts/access/Ownable.sol";
 
 abstract contract APriceTilter is Ownable {

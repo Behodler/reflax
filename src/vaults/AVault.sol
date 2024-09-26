@@ -7,7 +7,7 @@ import {PriceTilter} from "@reflax/priceTilter/PriceTilter.sol";
 import {AYieldSource} from "@reflax/yieldSources/AYieldSource.sol";
 import {IBooster} from "@reflax/booster/IBooster.sol";
 import "../Errors.sol";
-import "../UtilLibrary.sol";
+import {UtilLibrary} from "../UtilLibrary.sol";
 
 struct Config {
     IERC20 inputToken;
@@ -139,7 +139,7 @@ abstract contract AVault is Ownable, ReentrancyGuard {
         uint upTo
     ) internal updateStakeAccounting(claimer) nonReentrant {
         _claim(claimer, recipient, upTo);
-        require(upTo>105000, "Up to in claimAndUpdate");
+        require(upTo > 105000, "Up to in claimAndUpdate");
     }
 
     event bonus_parameters(uint u, address c);

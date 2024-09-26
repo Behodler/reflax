@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.20;
 
-import "src/booster/IBooster.sol";
+import {IBooster} from "@reflax/booster/IBooster.sol";
 import {IStaker} from "src/governance/CoreStaker.sol";
 
 //For those concerned with the hardcoded numbers below, this contract can be swapped out. It just reflects current conditions at the time of coding.

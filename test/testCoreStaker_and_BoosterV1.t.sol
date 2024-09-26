@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.20;
 import {IERC20, ERC20} from "@oz_reflax/contracts/token/ERC20/ERC20.sol";
-import "forge-std/Test.sol";
-import "../src/governance/CoreStaker.sol";
+import {Test} from "@forge-std/Test.sol";
+import {CoreStaker, LinenStats} from "../src/governance/CoreStaker.sol";
 import {TokenLockupPlans} from "./mocks/TokenLockupPlans_managed_time.sol";
 import {BoosterV1} from "@reflax/booster/BoosterV1.sol";
 import {HedgeyAdapter} from "../src/governance/HedgeyAdapter.sol";
