@@ -282,6 +282,7 @@ contract test_USDC_v1 is Test {
         Flax.mintUnits(1000_000, address(vault));
 
         uint flaxPriceBefore = wethToFlaxRatio();
+
         vault.claim(user1, upTo);
         require(upTo > 110000, "up to test");
         uint flaxBalanceAfter = Flax.balanceOf(user1);
@@ -295,26 +296,30 @@ contract test_USDC_v1 is Test {
         require(upTo > 130000, "up to Test");
     }
 
-    //if this number goes up, Flax price is rising
-    function wethToFlaxRatio() private returns (uint) {
-        IUniswapV2Pair referencePair = IUniswapV2Pair(
-            uniswapMaker.factory().getPair(
-                address(Flax),
-                address(uniswapMaker.WETH())
-            )
-        );
-
-        (uint reserve0, uint reserve1, ) = referencePair.getReserves();
-        (address token0, ) = (referencePair.token0(), referencePair.token1());
-        (uint flaxReserve, uint wethReserve) = token0 == address(Flax)
-            ? (reserve0, reserve1)
-            : (reserve1, reserve0);
-
-        return (wethReserve * ONE) / flaxReserve;
-    }
-
     function claim_with_zero_time_passes() public {
-        require(false, "NOT IMPLEMENTED");
+        uint upTo = envWithDefault("DebugUpTo", type(uint).max);
+        USDC.approve(address(vault), type(uint).max);
+        require(upTo > 100, "up to");
+        vault.stake(1000 * ONE_USDC, upTo);
+        address user1 = address(0x1);
+
+        uint flaxBalanceBefore = Flax.balanceOf(user1);
+        require(upTo > 100000, "up to");
+        Flax.mintUnits(1000_000, address(vault));
+
+        uint flaxBalanceOnVault_before = Flax.balanceOf(address(vault));
+
+        uint flaxPriceBefore = wethToFlaxRatio();
+        vault.claim(user1, upTo);
+
+        uint flaxBalanceOnVault_after = Flax.balanceOf(address(vault));
+
+        uint flaxPriceAfter = wethToFlaxRatio();
+        uint flaxBalanceAfter = Flax.balanceOf(user1);
+
+        vm.assertEq(flaxPriceAfter, flaxPriceBefore);
+        vm.assertEq(flaxBalanceBefore, flaxBalanceAfter);
+        vm.assertEq(flaxBalanceOnVault_before, flaxBalanceOnVault_after);
     }
 
     /*-----------withdrawUnaccountedForToken----------------------*/
@@ -338,5 +343,23 @@ contract test_USDC_v1 is Test {
     // This external function is required for using try-catch
     function getEnvValue(string memory env_var) external view returns (uint) {
         return vm.envUint(env_var);
+    }
+
+    //if this number goes up, Flax price is rising
+    function wethToFlaxRatio() private view returns (uint) {
+        IUniswapV2Pair referencePair = IUniswapV2Pair(
+            uniswapMaker.factory().getPair(
+                address(Flax),
+                address(uniswapMaker.WETH())
+            )
+        );
+
+        (uint reserve0, uint reserve1, ) = referencePair.getReserves();
+        (address token0, ) = (referencePair.token0(), referencePair.token1());
+        (uint flaxReserve, uint wethReserve) = token0 == address(Flax)
+            ? (reserve0, reserve1)
+            : (reserve1, reserve0);
+
+        return (wethReserve * ONE) / flaxReserve;
     }
 }
