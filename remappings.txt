@@ -11,3 +11,4 @@
 @hedgey/lockup=lib/Locked_VestingTokenPlans/contracts/LockupPlans
 @oz_hedgey/contracts=lib/Locked_VestingTokenPlans/contracts/oz
 @forge-std=lib/forge-std/src
+@test=ztest

@@ -4,22 +4,23 @@ pragma solidity ^0.8.20;
 import {Test} from "@forge-std/Test.sol";
 import {AVault} from "@reflax/vaults/AVault.sol";
 import {IERC20, ERC20} from "@oz_reflax/contracts/token/ERC20/ERC20.sol";
-import {MockCRVPool} from "test/mocks/MockCRVPool.sol";
-import {MockCVXPool} from "test/mocks/MockCVXPool.sol";
-import {MockConvexBooster} from "test/mocks/MockConvexBooster.sol";
+import {MockCRVPool} from "@test/mocks/MockCRVPool.sol";
+import {MockCVXPool} from "@test/mocks/MockCVXPool.sol";
+import {MockConvexBooster} from "@test/mocks/MockConvexBooster.sol";
 import {USDC_v1} from "@reflax/vaults/USDC_v1.sol";
 import {USDe_USDx_ys} from "src/yieldSources/convex/USDe_USDx_ys.sol";
-import {LocalUniswap} from "test/mocks/LocalUniswap.sol";
+import {LocalUniswap} from "@test/mocks/LocalUniswap.sol";
 import {BoosterV1} from "@reflax/booster/BoosterV1.sol";
-import {MockCoreStaker} from "test/mocks/MockCoreStaker.sol";
+import {MockCoreStaker} from "@test/mocks/MockCoreStaker.sol";
 import {UtilLibrary} from "src/UtilLibrary.sol";
 import {StandardOracle} from "@reflax/oracle/StandardOracle.sol";
 import {PriceTilter} from "@reflax/priceTilter/PriceTilter.sol";
 import {IUniswapV2Factory} from "@uniswap_reflax/core/interfaces/IUniswapV2Factory.sol";
 import {IUniswapV2Pair} from "@uniswap_reflax/core/interfaces/IUniswapV2Pair.sol";
 import {IWETH} from "@uniswap_reflax/periphery/interfaces/IWETH.sol";
-import {MockCRVToken} from "test/mocks/MockCRVToken.sol";
+import {MockCRVToken} from "@test/mocks/MockCRVToken.sol";
 import "src/Errors.sol";
+import {Ownable} from "@oz_reflax/contracts/access/Ownable.sol";
 
 contract Test_Token is ERC20 {
     uint unitSize;
@@ -297,7 +298,7 @@ contract test_USDC_v1 is Test {
         require(upTo > 130000, "up to Test");
     }
 
-    function claim_with_zero_time_passes() public {
+    function testClaim_with_zero_time_passes() public {
         uint upTo = envWithDefault("DebugUpTo", type(uint).max);
         USDC.approve(address(vault), type(uint).max);
         require(upTo > 100, "up to");
@@ -324,8 +325,23 @@ contract test_USDC_v1 is Test {
 
     /*-----------withdrawUnaccountedForToken----------------------*/
 
-    function withdrawUnaccountedForToken() public {
-     Test_Token newToken = new Test_Token("unkown",ONE);   
+    function testWithdraw_unaccounted_for_token() public {
+        Test_Token newToken = new Test_Token("unkown", ONE);
+        newToken.mintUnits(1000, address(vault));
+        address unauthorizedUser = address(0x1);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                Ownable.OwnableUnauthorizedAccount.selector,
+                address(unauthorizedUser)
+            )
+        );
+        vm.prank(unauthorizedUser);
+        vault.withdrawUnaccountedForToken(address(newToken));
+
+        vault.withdrawUnaccountedForToken(address(newToken));
+        uint balanceOfNewToken = newToken.balanceOf(address(this));
+        vm.assertEq(balanceOfNewToken, 1000 * ONE);
     }
 
     /*-----------setConfig----------------------*/

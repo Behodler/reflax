@@ -156,7 +156,6 @@ abstract contract AVault is Ownable, ReentrancyGuard {
             unclaimedFlax
         ) * unclaimedFlax) / config.booster.BasisPoints();
         require(upTo > 102000, "up to claim");
-        require(flaxToTransfer > 100, "flax too low");
         config.flax.transfer(recipient, flaxToTransfer);
         require(upTo > 103000, "up to claim");
         config.booster.updateWeight(caller);
