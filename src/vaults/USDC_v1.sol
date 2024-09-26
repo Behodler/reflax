@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.20;
-import "../baseContracts/AVault.sol";
+import "@reflax/vaults/AVault.sol";
 
 contract USDC_v1 is AVault {
     uint maxStake = 10_000 * 1e6; //$10000

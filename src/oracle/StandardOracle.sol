@@ -5,9 +5,9 @@ import "@uniswap_reflax/core/interfaces/IUniswapV2Pair.sol";
 import "@uniswap_reflax/periphery/lib/FixedPoint.sol";
 import "@uniswap_reflax/periphery/libraries/UniswapV2OracleLibrary.sol";
 import "@uniswap_reflax/periphery/libraries/UniswapV2Library.sol";
-import "./baseContracts/IOracle.sol";
+import "@reflax/oracle/IOracle.sol";
 import {Ownable} from "@oz_reflax/contracts/access/Ownable.sol";
-import "./Errors.sol";
+import "src/Errors.sol";
 
 contract StandardOracle is IOracle, Ownable {
     using FixedPoint for *;

@@ -5,3 +5,8 @@
 @uniswap/v2-core/contracts/=lib/UniswapV2CoreFoundryFriendly/src
 @hedgey/lockup=lib/Locked_VestingTokenPlans/contracts/LockupPlans
 @oz_hedgey/contracts=lib/Locked_VestingTokenPlans/contracts/oz
+@reflax/vaults=src/vaults
+@reflax/booster=src/booster
+@reflax/oracle=src/oracle
+@reflax/priceTilter=src/priceTilter
+@reflax/yieldSources=src/yieldSources

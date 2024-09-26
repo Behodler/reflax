@@ -2,19 +2,19 @@
 pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
-import "src/baseContracts/AVault.sol";
+import "@reflax/vaults/AVault.sol";
 import {IERC20, ERC20} from "@oz_reflax/contracts/token/ERC20/ERC20.sol";
 import {MockCRVPool} from "test/mocks/MockCRVPool.sol";
 import {MockCVXPool} from "test/mocks/MockCVXPool.sol";
 import {MockConvexBooster} from "test/mocks/MockConvexBooster.sol";
-import {USDC_v1} from "src/vaults/USDC_v1.sol";
+import {USDC_v1} from "@reflax/vaults/USDC_v1.sol";
 import {USDe_USDx_ys} from "src/yieldSources/convex/USDe_USDx_ys.sol";
 import {LocalUniswap} from "test/mocks/LocalUniswap.sol";
-import {BoosterV1} from "src/BoosterV1.sol";
+import {BoosterV1} from "@reflax/booster/BoosterV1.sol";
 import {MockCoreStaker} from "test/mocks/MockCoreStaker.sol";
 import {UtilLibrary} from "src/UtilLibrary.sol";
-import {StandardOracle} from "src/StandardOracle.sol";
-import {PriceTilter} from "src/PriceTilter.sol";
+import {StandardOracle} from "@reflax/oracle/StandardOracle.sol";
+import {PriceTilter} from "@reflax/priceTilter/PriceTilter.sol";
 import "@uniswap_reflax/core/interfaces/IUniswapV2Factory.sol";
 import "@uniswap_reflax/core/interfaces/IUniswapV2Pair.sol";
 import {IWETH} from "@uniswap_reflax/periphery/interfaces/IWETH.sol";

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.20;
-import "../../baseContracts/AYieldSource.sol";
+import "@reflax/yieldSources/AYieldSource.sol";
 import "@uniswap_reflax/core/interfaces/IUniswapV2Factory.sol";
 import "@uniswap_reflax/core/interfaces/IUniswapV2Pair.sol";
 import {UniswapV2Router02} from "@uniswap_reflax/periphery/UniswapV2Router02.sol";
