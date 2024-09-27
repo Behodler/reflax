@@ -218,13 +218,17 @@ contract USDe_USDx_ys is AYieldSource {
         convex.pool.getReward(address(this));
     }
 
-    function release_hook(uint amount) internal override {
+    function release_hook(uint protocolUnits, uint desiredTokenUnitAmount) internal override {
+              uint dy = crvPools.USDC_USDe.get_dy(0, 1, desiredTokenUnitAmount);
+        
         /*
-        1. Release convex
-        2. Unpair curve.
-        3. Sell usdx into crv for usde
-        4. Sell all usde into crv for usdc.
-        5. return usdc balance
+        1. Get USDC_USDe pool
+        2. Find out how much USDe you could get for that desired USDc amount
+        3. Get USDe_USDx pool
+        4. Find out how many protocol units you can mint with that much USDe.
+        5. Withdraw that many protocol units.
+        6. Get USDe out of USDe_USDx
+        7. Use USDe to get USDc out of USDc_
         */
         convex.pool.withdraw(amount, true);
         //remove all USDe
@@ -234,12 +238,13 @@ contract USDe_USDx_ys is AYieldSource {
             0,
             address(this)
         );
-        uint usdeBalance = crvPools.USDe.balanceOf(address(this));
+        uint usdeBalance = crvPools.USDe.balanceOf(address(this)); 
 
         //sell usdeForUSDC
         uint dy = crvPools.USDC_USDe.get_dy(0, 1, amount);
         crvPools.USDC_USDe.exchange(0, 1, usdeBalance, dy, address(this));
     }
+
 
     event get_input_value_of_protocol_deposit_hook_EVENT(
         uint convexBalance,

@@ -9,8 +9,10 @@ import {MockCVXPool} from "@test/mocks/MockCVXPool.sol";
 import {MockConvexBooster} from "@test/mocks/MockConvexBooster.sol";
 import {USDC_v1} from "@reflax/vaults/USDC_v1.sol";
 import {USDe_USDx_ys} from "src/yieldSources/convex/USDe_USDx_ys.sol";
+import {AYieldSource} from "src/yieldSources/AYieldSource.sol";
 import {LocalUniswap} from "@test/mocks/LocalUniswap.sol";
 import {BoosterV1} from "@reflax/booster/BoosterV1.sol";
+import {IBooster} from "@reflax/booster/IBooster.sol";
 import {MockCoreStaker} from "@test/mocks/MockCoreStaker.sol";
 import {UtilLibrary} from "src/UtilLibrary.sol";
 import {StandardOracle} from "@reflax/oracle/StandardOracle.sol";
@@ -346,7 +348,106 @@ contract test_USDC_v1 is Test {
 
     /*-----------setConfig----------------------*/
 
+    function testSetConfig() public {
+        address newAddress = address(
+            0x95222290DD7278Aa3Ddd389Cc1E1d165CC4BAfe5
+        );
+        (
+            ,
+            IERC20 flx_before,
+            AYieldSource yield_before,
+            IBooster booster_before
+        ) = vault.config();
+
+        vault.setConfig("0x95222290DD7278Aa3Ddd389Cc1E1d165CC4BAfe5", "", "");
+        (
+            ,
+            IERC20 flx_after,
+            AYieldSource yield_after,
+            IBooster booster_after
+        ) = vault.config();
+
+        vm.assertEq(address(flx_after), newAddress);
+        vm.assertEq(address(yield_before), address(yield_after));
+        vm.assertEq(address(booster_before), address(booster_after));
+
+        (, flx_before, yield_before, booster_before) = vault.config();
+
+        vault.setConfig("", "0x95222290DD7278Aa3Ddd389Cc1E1d165CC4BAfe5", "");
+
+        (, flx_after, yield_after, booster_after) = vault.config();
+
+        vm.assertEq(address(flx_after), address(flx_before));
+        vm.assertEq(address(yield_after), newAddress);
+        vm.assertEq(address(booster_before), address(booster_after));
+
+        (, flx_before, yield_before, booster_before) = vault.config();
+
+        vault.setConfig("", "", "0x95222290DD7278Aa3Ddd389Cc1E1d165CC4BAfe5");
+
+        (, flx_after, yield_after, booster_after) = vault.config();
+
+        vm.assertEq(address(flx_after), address(flx_before));
+        vm.assertEq(address(yield_after), address(yield_before));
+        vm.assertEq(newAddress, address(booster_after));
+    }
+
     /*-----------------migrateYieldSouce----------------------*/
+
+    event redeemRateParts(
+        uint redeemRate,
+        uint protocolBalance_hook,
+        uint totalDeposits
+    );
+
+    function testMigrateYieldSource() public {
+        uint upTo = envWithDefault("DebugUpTo", type(uint).max);
+        
+    USDe_USDx_ys yieldSource2;
+        yieldSource2 = new USDe_USDx_ys(address(USDC), address(uniswapMaker.router()), 0);
+        yieldSource2.setConvex(address(convexBooster));
+        USDC.approve(address(yieldSource2), type(uint).max);
+   yieldSource2.setCRV(address(CRV));
+        yieldSource2.setCRVPools(
+            address(USDC_USDe_crv),
+            address(USDe_USDx_crv),
+            address(USDe)
+        );
+
+       yieldSource2.approvals();
+        vault.setConfig(
+            UtilLibrary.toAsciiString(address(Flax)),
+            UtilLibrary.toAsciiString(address(yieldSource2)),
+            UtilLibrary.toAsciiString(address(boosterV1))
+        );
+
+        yieldSource2.configure(
+            1,
+            UtilLibrary.toAsciiString(address(USDC)),
+            UtilLibrary.toAsciiString(address(priceTilter)),
+            "convex",
+            "",
+            UtilLibrary.toAsciiString(address(vault))
+        );
+        USDC.approve(address(vault), type(uint).max);
+
+        vault.stake(1000 * ONE_USDC, upTo);
+        // vault.migrateYieldSouce(address(yieldSource2));
+    }
+
+    function testSimpleImmediateWithdrawal() public {
+        uint upTo = envWithDefault("DebugUpTo", type(uint).max);
+        USDC.approve(address(vault), type(uint).max);
+
+        uint usdcBalanceBefore = USDC.balanceOf(address(this));
+        vault.stake(1000 * ONE_USDC, upTo);
+        uint usdcBalanceAfter = USDC.balanceOf(address(this));
+        vm.assertEq(usdcBalanceBefore, usdcBalanceAfter + 1000 * ONE_USDC);
+        
+        require(upTo > 1000000, "Up to testSimple");
+        address recipient = address(0x1);
+        vault.withdraw(1000 * ONE_USDC, recipient, false);
+    }
 
     function envWithDefault(
         string memory env_var,

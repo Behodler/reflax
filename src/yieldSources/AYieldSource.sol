@@ -20,11 +20,7 @@ abstract contract AYieldSource is Ownable {
     RewardToken[] public rewards;
     PriceTilter priceTilter;
     uint totalDeposits;
-
-    function redeemRate() public view returns (uint) {
-        return (protocolBalance_hook() * ONE) / totalDeposits;
-    }
-
+    
     constructor(address _inputToken) Ownable(msg.sender) {
         inputToken = _inputToken;
     }
@@ -143,8 +139,9 @@ abstract contract AYieldSource is Ownable {
         uint amount,
         bool allowImpermanentLoss
     ) public approvedVault {
-        uint _redeemRate = redeemRate();
-        uint protolUnitsToWithdraw = (amount * _redeemRate) / ONE;
+
+        uint protolUnitsToWithdraw = protocolBalance_hook();
+        //TODO: find out implied USDC
         release_hook(protolUnitsToWithdraw);
         uint assetBalanceBefore = IERC20(inputToken).balanceOf(address(this));
         IERC20(inputToken).transfer(address(this), amount);
