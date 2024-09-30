@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.20;
 import {AYieldSource} from "@reflax/yieldSources/AYieldSource.sol";
-import {IUniswapV2Factory}  from "@uniswap_reflax/core/interfaces/IUniswapV2Factory.sol";
-import {IUniswapV2Pair}  from "@uniswap_reflax/core/interfaces/IUniswapV2Pair.sol";
+import {IUniswapV2Factory} from "@uniswap_reflax/core/interfaces/IUniswapV2Factory.sol";
+import {IUniswapV2Pair} from "@uniswap_reflax/core/interfaces/IUniswapV2Pair.sol";
 
 import {UniswapV2Router02} from "@uniswap_reflax/periphery/UniswapV2Router02.sol";
 import {IWETH} from "@uniswap_reflax/periphery/interfaces/IWETH.sol";
@@ -19,7 +19,6 @@ struct SushiswapConfig {
 
 //index 0 is USDC and index1 is USDE. Remember USDC is 6 decimal places
 abstract contract CRV_pool {
-    
     function approve(
         address spender,
         uint256 value
@@ -32,8 +31,14 @@ abstract contract CRV_pool {
         uint dx
     ) public view virtual returns (uint);
 
-    //remember to approve
-    //use above to get_dy and then pass it into exchnage below
+    /**
+     *
+     * @param i Index value for the coin to send
+     * @param j Index of receivedss
+     * @param _dx amount of i
+     * @param _min_dy mininum output
+     * @param receiver recipient
+     */
     function exchange(
         uint128 i,
         uint128 j,
@@ -52,6 +57,14 @@ abstract contract CRV_pool {
 
     function totalSupply() public view virtual returns (uint);
 
+    /**
+     *@notice Withdraw a single coin from the pool
+     *@param _burn_amount Amount of LP tokens to burn in the withdrawal
+     *@param i Index value of the coin to withdraw
+     *@param _min_received Minimum amount of coin to receive
+     *@param receiver Address that receives the withdrawn coins
+     *@return Amount of coin received
+     */
     function remove_liquidity_one_coin(
         uint _burn_amount,
         int128 i,
@@ -63,6 +76,18 @@ abstract contract CRV_pool {
         uint256 _burn_amount,
         int128 i
     ) public view virtual returns (uint256);
+
+    /**
+     *
+     *@notice Calculate addition or reduction in token supply from a deposit or withdrawal
+     *@param _amounts Amount of each coin being deposited
+     *@param is_deposit set True for deposits, False for withdrawals
+     *@return Expected amount of LP tokens received
+     */
+    function calc_token_amount(
+        uint[] memory _amounts,
+        bool is_deposit
+    ) external view virtual returns (uint);
 }
 
 abstract contract CVX_pool {
@@ -79,11 +104,10 @@ abstract contract CVX_pool {
 abstract contract AConvexBooster {
     struct PoolInfo {
         address lptoken;
-        address token; //token issued by convex
         address gauge;
         address crvRewards;
-        address stash;
         bool shutdown;
+        address factory;
     }
 
     //index(pid) -> pool
@@ -132,11 +156,11 @@ contract USDe_USDx_ys is AYieldSource {
 
     function setConvex(address booster) public onlyOwner {
         convex.booster = AConvexBooster(booster);
-        (address lptoken, address token, , , , ) = convex.booster.poolInfo(
+        (address lptoken, , address rewards, , ) = convex.booster.poolInfo(
             convex.poolId
         );
-        convex.issuedToken = IERC20(token);
-        convex.pool = CVX_pool(token);
+        convex.issuedToken = IERC20(rewards);
+        convex.pool = CVX_pool(rewards);
     }
 
     function setCRVPools(
@@ -218,9 +242,14 @@ contract USDe_USDx_ys is AYieldSource {
         convex.pool.getReward(address(this));
     }
 
-    function release_hook(uint protocolUnits, uint desiredTokenUnitAmount) internal override {
-              uint dy = crvPools.USDC_USDe.get_dy(0, 1, desiredTokenUnitAmount);
-        
+    event USDe_taken(uint USDe);
+
+    function release_hook(
+        uint protocolUnitsBalance,
+        uint desiredTokenUnitAmount
+    ) internal override {
+        uint USDe_dy = crvPools.USDC_USDe.get_dy(0, 1, desiredTokenUnitAmount);
+        emit USDe_taken(USDe_dy);
         /*
         1. Get USDC_USDe pool
         2. Find out how much USDe you could get for that desired USDc amount
@@ -230,24 +259,29 @@ contract USDe_USDx_ys is AYieldSource {
         6. Get USDe out of USDe_USDx
         7. Use USDe to get USDc out of USDc_
         */
-        convex.pool.withdraw(amount, true);
-        //remove all USDe
+
+        uint[] memory withdrawOfUSDeAmounts = new uint[](2);
+        withdrawOfUSDeAmounts[0] = USDe_dy;
+        uint protocolUnitsNeeded = crvPools.convexPool.calc_token_amount(
+            withdrawOfUSDeAmounts,
+            false
+        );
+        protocolUnitsNeeded = protocolUnitsBalance > protocolUnitsNeeded
+            ? protocolUnitsNeeded
+            : protocolUnitsBalance;
+        convex.pool.withdraw(protocolUnitsNeeded, true);
         crvPools.convexPool.remove_liquidity_one_coin(
-            amount,
+            protocolUnitsNeeded,
             0,
-            0,
+            USDe_dy,
             address(this)
         );
-        uint usdeBalance = crvPools.USDe.balanceOf(address(this)); 
-
-        //sell usdeForUSDC
-        uint dy = crvPools.USDC_USDe.get_dy(0, 1, amount);
-        crvPools.USDC_USDe.exchange(0, 1, usdeBalance, dy, address(this));
+        uint USDC_dy = crvPools.USDC_USDe.get_dy(1, 0, USDe_dy);
+        crvPools.USDC_USDe.exchange(1, 0, USDe_dy, USDC_dy, address(this));
     }
 
-
     event get_input_value_of_protocol_deposit_hook_EVENT(
-        uint convexBalance,
+        uint convexBalancsse,
         uint usdeVal,
         uint impliedUSDC
     );
@@ -268,7 +302,6 @@ contract USDe_USDx_ys is AYieldSource {
         impliedUSDC = usdeVal == 0
             ? 0
             : crvPools.USDC_USDe.get_dy(1, 0, usdeVal);
-        
     }
 
     //End hooks

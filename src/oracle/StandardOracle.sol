@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
 import {IUniswapV2Factory} from "@uniswap_reflax/core/interfaces/IUniswapV2Factory.sol";
-import {IUniswapV2Pair}from "@uniswap_reflax/core/interfaces/IUniswapV2Pair.sol";
+import {IUniswapV2Pair} from "@uniswap_reflax/core/interfaces/IUniswapV2Pair.sol";
 import {FixedPoint} from "@uniswap_reflax/periphery/lib/FixedPoint.sol";
 import {UniswapV2OracleLibrary} from "@uniswap_reflax/periphery/libraries/UniswapV2OracleLibrary.sol";
 import {UniswapV2Library} from "@uniswap_reflax/periphery/libraries/UniswapV2Library.sol";
-import {IOracle} from"@reflax/oracle/IOracle.sol";
+import {IOracle} from "@reflax/oracle/IOracle.sol";
 import {Ownable} from "@oz_reflax/contracts/access/Ownable.sol";
 import "src/Errors.sol";
 
@@ -40,9 +40,11 @@ contract StandardOracle is IOracle, Ownable {
         }
         _;
     }
+    uint upTo;
 
-    constructor(address V2factory) Ownable(msg.sender) {
+    constructor(address V2factory, uint _upTo) Ownable(msg.sender) {
         factory = IUniswapV2Factory(V2factory);
+        upTo = _upTo;
     }
 
     /**

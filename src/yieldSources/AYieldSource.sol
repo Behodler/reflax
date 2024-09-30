@@ -20,7 +20,7 @@ abstract contract AYieldSource is Ownable {
     RewardToken[] public rewards;
     PriceTilter priceTilter;
     uint totalDeposits;
-    
+
     constructor(address _inputToken) Ownable(msg.sender) {
         inputToken = _inputToken;
     }
@@ -82,12 +82,15 @@ abstract contract AYieldSource is Ownable {
     function protocolBalance_hook() internal view virtual returns (uint);
 
     //from convex all the way to usdc
-    function release_hook(uint amount) internal virtual;
+    function release_hook(
+        uint amount,
+        uint desiredAmountToRelease
+    ) internal virtual;
 
     function get_input_value_of_protocol_deposit_hook()
         internal
-        virtual
         view
+        virtual
         returns (uint);
 
     function sellRewardsForReferenceToken_hook(
@@ -139,12 +142,10 @@ abstract contract AYieldSource is Ownable {
         uint amount,
         bool allowImpermanentLoss
     ) public approvedVault {
-
         uint protolUnitsToWithdraw = protocolBalance_hook();
-        //TODO: find out implied USDC
-        release_hook(protolUnitsToWithdraw);
+
         uint assetBalanceBefore = IERC20(inputToken).balanceOf(address(this));
-        IERC20(inputToken).transfer(address(this), amount);
+        release_hook(protolUnitsToWithdraw, amount);
         uint assetBalanceAfter = IERC20(inputToken).balanceOf(address(this));
 
         require(
