@@ -26,8 +26,8 @@ abstract contract CRV_pool {
 
     //For USDC in, get_dy(1,0,1e6) returns approx 1e18
     function get_dy(
-        uint128 i,
-        uint128 j,
+        int128 i,
+        int128 j,
         uint dx
     ) public view virtual returns (uint);
 
@@ -40,17 +40,16 @@ abstract contract CRV_pool {
      * @param receiver recipient
      */
     function exchange(
-        uint128 i,
-        uint128 j,
+        int128 i,
+        int128 j,
         uint _dx,
         uint _min_dy,
         address receiver
     ) public virtual;
 
-    function addLiquidity(
+    function add_liquidity(
         uint256[] memory _amounts,
-        uint256 _minMintAmount,
-        address _receiver
+        uint256 _minMintAmount
     ) public virtual returns (uint256);
 
     function get_balances() public view virtual returns (uint[] memory);
@@ -114,8 +113,7 @@ abstract contract AConvexBooster {
     PoolInfo[] public poolInfo;
 
     function depositAll(
-        uint256 _pid,
-        uint upTo
+        uint256 _pid
     ) external virtual returns (bool);
 }
 //USDC-USDE CRV Pool token
@@ -208,7 +206,9 @@ contract USDe_USDx_ys is AYieldSource {
         uint[] memory liquidity = new uint[](2);
         liquidity[0] = USDe_balance;
         require(liquidity[0] > 0, "no USDe");
-        crvPools.convexPool.addLiquidity(liquidity, 0, address(this));
+
+        crvPools.convexPool.add_liquidity(liquidity, (liquidity[0] * 8) / 10);
+
         uint balanceOfConvexPool = IERC20(address(crvPools.convexPool))
             .balanceOf(address(this));
         require(balanceOfConvexPool > 10000, "No USDE_USDx minted");
@@ -229,7 +229,7 @@ contract USDe_USDx_ys is AYieldSource {
         USDe_USDx_crv.addLiquidity(liquidity, 0, address(this));
         */
 
-        convex.booster.depositAll(convex.poolId, upTo);
+        convex.booster.depositAll(convex.poolId);
         require(upTo > 99400, "UP TO deposit hook");
     }
 
@@ -294,10 +294,10 @@ contract USDe_USDx_ys is AYieldSource {
     {
         uint convexBalance = convex.issuedToken.balanceOf(address(this));
 
-        uint usdeVal = crvPools.convexPool.calc_withdraw_one_coin(
-            convexBalance,
-            0
-        );
+        //CRV reverts on zero input
+        uint usdeVal = convexBalance == 0
+            ? 0
+            : crvPools.convexPool.calc_withdraw_one_coin(convexBalance, 0);
 
         impliedUSDC = usdeVal == 0
             ? 0

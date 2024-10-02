@@ -49,9 +49,9 @@ contract test_USDC_v1 is Test {
     uint constant ONE_USDC = 1e6;
     uint constant ONE = 1 ether;
 
-    Test_Token USDC;
-    Test_Token USDe;
-    Test_Token USDx;
+    IERC20 USDC;
+    IERC20 USDe;
+    IERC20 USDx;
     Test_Token Flax;
     IERC20 CRV;
     //fork arbitrum
@@ -118,7 +118,11 @@ contract test_USDC_v1 is Test {
         (address router, address factory, address weth) = uniswapMaker
             .getAddresses();
         if (upTo <= 8) return;
-        yieldSource = new USDe_USDx_ys(address(USDC), router, constants.convexPoolId());
+        yieldSource = new USDe_USDx_ys(
+            address(USDC),
+            router,
+            constants.convexPoolId()
+        );
         if (upTo <= 9) return;
         yieldSource.setConvex(address(convexBooster));
         if (upTo <= 10) return;
@@ -210,50 +214,26 @@ contract test_USDC_v1 is Test {
 
     function testSetup() public {}
 
-    //     function testTokenSizes() public {
-    //         uint usdcTS_before = USDC.totalSupply();
-    //         uint usdxTS_before = USDe.totalSupply();
-    //         uint usdeTS_before = USDx.totalSupply();
-    //         uint flaxTS_before = Flax.totalSupply();
-
-    //         USDC.mintUnits(1, address(this));
-    //         USDe.mintUnits(1, address(this));
-    //         USDx.mintUnits(1, address(this));
-    //         Flax.mintUnits(1, address(this));
-
-    //         uint usdcTS_change = USDC.totalSupply() - usdcTS_before;
-    //         uint usdxTS_change = USDe.totalSupply() - usdxTS_before;
-    //         uint usdeTS_change = USDx.totalSupply() - usdeTS_before;
-    //         uint flaxTS_change = Flax.totalSupply() - flaxTS_before;
-
-    //         vm.assertEq(usdcTS_change, 1e6);
-    //         vm.assertEq(usdxTS_change, 1e18);
-    //         vm.assertTrue(
-    //             usdxTS_change == usdeTS_change && usdeTS_change == flaxTS_change
-    //         );
-    //     }
-
     //     /*-----------setMaxStake----------------------*/
 
-    //     function testMaxStake() public {
-    //         uint upTo = envWithDefault("DebugUpTo", type(uint).max);
-    //         USDC.approve(address(vault), type(uint).max);
-    //         require(upTo > 100, "up to");
-    //         vault.stake(7000 * ONE_USDC, upTo);
-    //         require(upTo > 120000, "Up to in testMaxStake() reached");
-    //         vault.stake(2999 * ONE_USDC, upTo);
-    //         require(
-    //             upTo > 121000,
-    //             "Up to in testMaxStake(): about to blow the lid"
-    //         );
-    //         vm.expectRevert(
-    //             abi.encodeWithSelector(
-    //                 DepositProhibited.selector,
-    //                 "Vault capped at 10000 USDC"
-    //             )
-    //         );
-    //         vault.stake(2 * ONE_USDC, upTo);
-    //     }
+    function testMaxStake() public {
+        uint upTo = envWithDefault("DebugUpTo", type(uint).max);
+        require(upTo > 100, "up to");
+        vault.stake(7000 * ONE_USDC, upTo);
+        require(upTo > 120000, "Up to in testMaxStake() reached");
+        vault.stake(2999 * ONE_USDC, upTo);
+        require(
+            upTo > 121000,
+            "Up to in testMaxStake(): about to blow the lid"
+        );
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                DepositProhibited.selector,
+                "Vault capped at 10000 USDC"
+            )
+        );
+        vault.stake(2 * ONE_USDC, upTo);
+    }
 
     //     /*-----------stake----------------------*/
 

@@ -102,6 +102,8 @@ abstract contract AYieldSource is Ownable {
 
     //end hooks
 
+    event fundOpen ();
+    event transferSuccessful ();
     function deposit(
         uint amount,
         address staker,
@@ -110,12 +112,14 @@ abstract contract AYieldSource is Ownable {
         if (!open) {
             revert FundClosed();
         }
-        // require(upTo > 99001, "Up To Reached");
+        emit fundOpen();
+        require(upTo > 99001, "Up To Reached");
         IERC20(inputToken).transferFrom(staker, address(this), amount);
-        // require(upTo > 99002, "Up To Reached");
+        emit transferSuccessful();
+        require(upTo > 99002, "Up To Reached");
         totalDeposits += amount;
         deposit_hook(amount, upTo);
-        // require(upTo > 99401, "Up To Reached");
+        require(upTo > 99401, "Up To Reached");
     }
 
     function advanceYield()
