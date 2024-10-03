@@ -69,11 +69,11 @@ contract test_USDC_v1 is Test {
         uint upTo = envWithDefault("DebugUpTo", type(uint).max);
         ArbitrumConstants constants = new ArbitrumConstants();
         if (upTo <= 1) return;
-        IERC20 USDC = IERC20(constants.USDC());
-        IERC20 USDe = IERC20(constants.USDe());
-        IERC20 USDx = IERC20(constants.USDx());
+        USDC = IERC20(constants.USDC());
+        USDe = IERC20(constants.USDe());
+        USDx = IERC20(constants.USDx());
         Flax = new Test_Token("Flax", ONE);
-        IERC20 CRV = IERC20(constants.CRV());
+        CRV = IERC20(constants.CRV());
 
         if (upTo <= 2) return;
         uniswapMaker = new LocalUniswap(constants.sushiV2RouterO2_address());
@@ -240,33 +240,37 @@ contract test_USDC_v1 is Test {
     //     /*-----------withdraw----------------------*/
 
     //     /*-----------claim----------------------*/
-    //     function testAccumulateRewards() public {
-    //         uint upTo = envWithDefault("DebugUpTo", type(uint).max);
-    //         USDC.approve(address(vault), type(uint).max);
-    //         require(upTo > 100, "up to");
-    //         vault.stake(1000 * ONE_USDC, upTo);
-    //         address user1 = address(0x1);
-    //         vm.warp(vm.getBlockTimestamp() + 60 * 60);
+    function testAccumulateRewards() public {
+        uint upTo = envWithDefault("DebugUpTo", type(uint).max);
+        USDC.approve(address(vault), type(uint).max);
+        require(upTo > 100, "up to");
+        vault.stake(1000 * ONE_USDC, upTo);
+        address user1 = address(0x1);
+        uint initialBlockTimeStamp = vm.getBlockTimestamp();
+     
+        vm.warp(initialBlockTimeStamp + 600 * 60);
+        vm.assertGt(vm.getBlockTimestamp(), initialBlockTimeStamp + 100);
 
-    //         uint flaxBalanceBefore = Flax.balanceOf(user1);
-    //         require(upTo > 100000, "up to");
-    //         //Vault needs to be topped up because there's no minting on Arbitrum
-    //         Flax.mintUnits(1000_000, address(vault));
+        uint flaxBalanceBefore = Flax.balanceOf(user1);
+        require(upTo > 100000, "up to");
+        //Vault needs to be topped up because there's no minting on Arbitrum
+        Flax.mintUnits(1000_000, address(vault));
 
-    //         uint flaxPriceBefore = wethToFlaxRatio();
+        uint flaxPriceBefore = wethToFlaxRatio();
 
-    //         vault.claim(user1, upTo);
-    //         require(upTo > 110000, "up to test");
-    //         uint flaxBalanceAfter = Flax.balanceOf(user1);
-    //         vm.assertGt(flaxBalanceAfter, flaxBalanceBefore);
-    //         require(upTo > 120000, "up to Test");
+        vault.claim(user1, upTo);
+        require(upTo > 110000, "up to test");
+        uint flaxBalanceAfter = Flax.balanceOf(user1);
+        vm.assertGt(flaxBalanceAfter, flaxBalanceBefore);
+        require(upTo > 120000, "up to Test");
 
-    //         uint flaxPriceAfter = wethToFlaxRatio();
+        uint flaxPriceAfter = wethToFlaxRatio();
 
-    //         //this hopefully fails
-    //         vm.assertGt(flaxPriceAfter, flaxPriceBefore);
-    //         require(upTo > 130000, "up to Test");
-    //     }
+        require(upTo > 125000, "up to Test");
+        //this hopefully fails
+        vm.assertGt(flaxPriceAfter, flaxPriceBefore);
+        require(upTo > 130000, "up to Test");
+    }
 
     //     function testClaim_with_zero_time_passes() public {
     //         uint upTo = envWithDefault("DebugUpTo", type(uint).max);
