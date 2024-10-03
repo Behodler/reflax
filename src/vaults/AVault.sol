@@ -123,7 +123,7 @@ abstract contract AVault is Ownable, ReentrancyGuard {
         address recipient,
         bool allowImpermanentLoss
     ) internal updateStakeAccounting(staker) nonReentrant {
-        _claim(staker, recipient, 0);
+        _claim(staker, recipient, type(uint).max);
         accounting.sharesBalance[staker] -= amount;
         accounting.totalShares -= amount;
         config.yieldSource.releaseInput(

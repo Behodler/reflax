@@ -154,10 +154,10 @@ abstract contract AYieldSource is Ownable {
 
         require(
             allowImpermanentLoss ||
-                assetBalanceAfter - assetBalanceBefore > amount,
+                assetBalanceAfter > amount,
             "Withdrawal halted: impermanent loss"
         );
-        IERC20(inputToken).transfer(recipient, amount);
+        IERC20(inputToken).transfer(recipient, assetBalanceAfter);
         totalDeposits -= amount;
     }
 }

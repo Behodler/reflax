@@ -112,9 +112,7 @@ abstract contract AConvexBooster {
     //index(pid) -> pool
     PoolInfo[] public poolInfo;
 
-    function depositAll(
-        uint256 _pid
-    ) external virtual returns (bool);
+    function depositAll(uint256 _pid) external virtual returns (bool);
 }
 //USDC-USDE CRV Pool token
 //https://arbiscan.io/address/0x1c34204fcfe5314dcf53be2671c02c35db58b4e3
@@ -179,7 +177,7 @@ contract USDe_USDx_ys is AYieldSource {
         uint MAX = type(uint).max;
         IERC20(inputToken).approve(address(crvPools.USDC_USDe), MAX);
         crvPools.USDe.approve(address(crvPools.convexPool), MAX);
-
+        crvPools.USDe.approve(address(crvPools.USDC_USDe), MAX);
         IERC20(address(crvPools.convexPool)).approve(
             address(convex.booster),
             MAX
@@ -273,11 +271,13 @@ contract USDe_USDx_ys is AYieldSource {
         crvPools.convexPool.remove_liquidity_one_coin(
             protocolUnitsNeeded,
             0,
-            USDe_dy,
+            (USDe_dy * 9) / 10,
             address(this)
         );
-        uint USDC_dy = crvPools.USDC_USDe.get_dy(1, 0, USDe_dy);
-        crvPools.USDC_USDe.exchange(1, 0, USDe_dy, USDC_dy, address(this));
+        uint usde_balance = crvPools.USDe.balanceOf(address(this));
+        uint USDC_dy = crvPools.USDC_USDe.get_dy(1, 0, usde_balance);
+
+        crvPools.USDC_USDe.exchange(1, 0, usde_balance, USDC_dy, address(this));
     }
 
     event get_input_value_of_protocol_deposit_hook_EVENT(

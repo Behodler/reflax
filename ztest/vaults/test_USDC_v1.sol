@@ -247,7 +247,7 @@ contract test_USDC_v1 is Test {
         vault.stake(1000 * ONE_USDC, upTo);
         address user1 = address(0x1);
         uint initialBlockTimeStamp = vm.getBlockTimestamp();
-     
+
         vm.warp(initialBlockTimeStamp + 600 * 60);
         vm.assertGt(vm.getBlockTimestamp(), initialBlockTimeStamp + 100);
 
@@ -272,97 +272,97 @@ contract test_USDC_v1 is Test {
         require(upTo > 130000, "up to Test");
     }
 
-    //     function testClaim_with_zero_time_passes() public {
-    //         uint upTo = envWithDefault("DebugUpTo", type(uint).max);
-    //         USDC.approve(address(vault), type(uint).max);
-    //         require(upTo > 100, "up to");
-    //         vault.stake(1000 * ONE_USDC, upTo);
-    //         address user1 = address(0x1);
+    function testClaim_with_zero_time_passes() public {
+        uint upTo = envWithDefault("DebugUpTo", type(uint).max);
+        USDC.approve(address(vault), type(uint).max);
+        require(upTo > 100, "up to");
+        vault.stake(1000 * ONE_USDC, upTo);
+        address user1 = address(0x1);
 
-    //         uint flaxBalanceBefore = Flax.balanceOf(user1);
-    //         require(upTo > 100000, "up to");
-    //         Flax.mintUnits(1000_000, address(vault));
+        uint flaxBalanceBefore = Flax.balanceOf(user1);
+        require(upTo > 100000, "up to");
+        Flax.mintUnits(1000_000, address(vault));
 
-    //         uint flaxBalanceOnVault_before = Flax.balanceOf(address(vault));
-    //         uint flaxPriceBefore = wethToFlaxRatio();
-    //         vault.claim(user1, upTo);
+        uint flaxBalanceOnVault_before = Flax.balanceOf(address(vault));
+        uint flaxPriceBefore = wethToFlaxRatio();
+        vault.claim(user1, upTo);
 
-    //         uint flaxBalanceOnVault_after = Flax.balanceOf(address(vault));
+        uint flaxBalanceOnVault_after = Flax.balanceOf(address(vault));
 
-    //         uint flaxPriceAfter = wethToFlaxRatio();
-    //         uint flaxBalanceAfter = Flax.balanceOf(user1);
+        uint flaxPriceAfter = wethToFlaxRatio();
+        uint flaxBalanceAfter = Flax.balanceOf(user1);
 
-    //         vm.assertEq(flaxPriceAfter, flaxPriceBefore);
-    //         vm.assertEq(flaxBalanceBefore, flaxBalanceAfter);
-    //         vm.assertEq(flaxBalanceOnVault_before, flaxBalanceOnVault_after);
-    //     }
+        vm.assertEq(flaxPriceAfter, flaxPriceBefore);
+        vm.assertEq(flaxBalanceBefore, flaxBalanceAfter);
+        vm.assertEq(flaxBalanceOnVault_before, flaxBalanceOnVault_after);
+    }
 
     //     /*-----------withdrawUnaccountedForToken----------------------*/
 
-    //     function testWithdraw_unaccounted_for_token() public {
-    //         Test_Token newToken = new Test_Token("unkown", ONE);
-    //         newToken.mintUnits(1000, address(vault));
-    //         address unauthorizedUser = address(0x1);
+        function testWithdraw_unaccounted_for_token() public {
+            Test_Token newToken = new Test_Token("unkown", ONE);
+            newToken.mintUnits(1000, address(vault));
+            address unauthorizedUser = address(0x1);
 
-    //         vm.expectRevert(
-    //             abi.encodeWithSelector(
-    //                 Ownable.OwnableUnauthorizedAccount.selector,
-    //                 address(unauthorizedUser)
-    //             )
-    //         );
-    //         vm.prank(unauthorizedUser);
-    //         vault.withdrawUnaccountedForToken(address(newToken));
+            vm.expectRevert(
+                abi.encodeWithSelector(
+                    Ownable.OwnableUnauthorizedAccount.selector,
+                    address(unauthorizedUser)
+                )
+            );
+            vm.prank(unauthorizedUser);
+            vault.withdrawUnaccountedForToken(address(newToken));
 
-    //         vault.withdrawUnaccountedForToken(address(newToken));
-    //         uint balanceOfNewToken = newToken.balanceOf(address(this));
-    //         vm.assertEq(balanceOfNewToken, 1000 * ONE);
-    //     }
+            vault.withdrawUnaccountedForToken(address(newToken));
+            uint balanceOfNewToken = newToken.balanceOf(address(this));
+            vm.assertEq(balanceOfNewToken, 1000 * ONE);
+        }
 
     //     /*-----------setConfig----------------------*/
 
-    //     function testSetConfig() public {
-    //         address newAddress = address(
-    //             0x95222290DD7278Aa3Ddd389Cc1E1d165CC4BAfe5
-    //         );
-    //         (
-    //             ,
-    //             IERC20 flx_before,
-    //             AYieldSource yield_before,
-    //             IBooster booster_before
-    //         ) = vault.config();
+        function testSetConfig() public {
+            address newAddress = address(
+                0x95222290DD7278Aa3Ddd389Cc1E1d165CC4BAfe5
+            );
+            (
+                ,
+                IERC20 flx_before,
+                AYieldSource yield_before,
+                IBooster booster_before
+            ) = vault.config();
 
-    //         vault.setConfig("0x95222290DD7278Aa3Ddd389Cc1E1d165CC4BAfe5", "", "");
-    //         (
-    //             ,
-    //             IERC20 flx_after,
-    //             AYieldSource yield_after,
-    //             IBooster booster_after
-    //         ) = vault.config();
+            vault.setConfig("0x95222290DD7278Aa3Ddd389Cc1E1d165CC4BAfe5", "", "");
+            (
+                ,
+                IERC20 flx_after,
+                AYieldSource yield_after,
+                IBooster booster_after
+            ) = vault.config();
 
-    //         vm.assertEq(address(flx_after), newAddress);
-    //         vm.assertEq(address(yield_before), address(yield_after));
-    //         vm.assertEq(address(booster_before), address(booster_after));
+            vm.assertEq(address(flx_after), newAddress);
+            vm.assertEq(address(yield_before), address(yield_after));
+            vm.assertEq(address(booster_before), address(booster_after));
 
-    //         (, flx_before, yield_before, booster_before) = vault.config();
+            (, flx_before, yield_before, booster_before) = vault.config();
 
-    //         vault.setConfig("", "0x95222290DD7278Aa3Ddd389Cc1E1d165CC4BAfe5", "");
+            vault.setConfig("", "0x95222290DD7278Aa3Ddd389Cc1E1d165CC4BAfe5", "");
 
-    //         (, flx_after, yield_after, booster_after) = vault.config();
+            (, flx_after, yield_after, booster_after) = vault.config();
 
-    //         vm.assertEq(address(flx_after), address(flx_before));
-    //         vm.assertEq(address(yield_after), newAddress);
-    //         vm.assertEq(address(booster_before), address(booster_after));
+            vm.assertEq(address(flx_after), address(flx_before));
+            vm.assertEq(address(yield_after), newAddress);
+            vm.assertEq(address(booster_before), address(booster_after));
 
-    //         (, flx_before, yield_before, booster_before) = vault.config();
+            (, flx_before, yield_before, booster_before) = vault.config();
 
-    //         vault.setConfig("", "", "0x95222290DD7278Aa3Ddd389Cc1E1d165CC4BAfe5");
+            vault.setConfig("", "", "0x95222290DD7278Aa3Ddd389Cc1E1d165CC4BAfe5");
 
-    //         (, flx_after, yield_after, booster_after) = vault.config();
+            (, flx_after, yield_after, booster_after) = vault.config();
 
-    //         vm.assertEq(address(flx_after), address(flx_before));
-    //         vm.assertEq(address(yield_after), address(yield_before));
-    //         vm.assertEq(newAddress, address(booster_after));
-    //     }
+            vm.assertEq(address(flx_after), address(flx_before));
+            vm.assertEq(address(yield_after), address(yield_before));
+            vm.assertEq(newAddress, address(booster_after));
+        }
 
     //     /*-----------------migrateYieldSouce----------------------*/
 
@@ -407,19 +407,23 @@ contract test_USDC_v1 is Test {
     //         // vault.migrateYieldSouce(address(yieldSource2));
     //     }
 
-    //     function testSimpleImmediateWithdrawal() public {
-    //         uint upTo = envWithDefault("DebugUpTo", type(uint).max);
-    //         USDC.approve(address(vault), type(uint).max);
+        function testSimpleImmediateWithdrawal() public {
+            uint upTo = envWithDefault("DebugUpTo", type(uint).max);
+            USDC.approve(address(vault), type(uint).max);
 
-    //         uint usdcBalanceBefore = USDC.balanceOf(address(this));
-    //         vault.stake(1000 * ONE_USDC, upTo);
-    //         uint usdcBalanceAfter = USDC.balanceOf(address(this));
-    //         vm.assertEq(usdcBalanceBefore, usdcBalanceAfter + 1000 * ONE_USDC);
+            uint usdcBalanceBefore = USDC.balanceOf(address(this));
+            vault.stake(1000 * ONE_USDC, upTo);
+            uint usdcBalanceAfter = USDC.balanceOf(address(this));
+            vm.assertEq(usdcBalanceBefore, usdcBalanceAfter + 1000 * ONE_USDC);
 
-    //         require(upTo > 1000000, "Up to testSimple");
-    //         address recipient = address(0x1);
-    //         vault.withdraw(1000 * ONE_USDC, recipient, false);
-    //     }
+            require(upTo > 1000000, "Up to testSimple");
+            address recipient = address(0x1);
+            vault.withdraw(1000 * ONE_USDC, recipient, true);
+        }
+
+        function testWithdrawalNoImpermanentLoss() public {
+            require(false, "NOT IMPLEMENTED");
+        }
 
     function envWithDefault(
         string memory env_var,
