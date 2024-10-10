@@ -452,6 +452,10 @@ contract test_USDC_v1 is Test {
     //         // vault.migrateYieldSouce(address(yieldSource2));
     //     }
 
+    function test_migrate_yieldSource() public {
+        require(false,"not implemented");
+    }
+
     function testSimpleImmediateWithdrawal() public {
         uint upTo = envWithDefault("DebugUpTo", type(uint).max);
         USDC.approve(address(vault), type(uint).max);
@@ -466,8 +470,6 @@ contract test_USDC_v1 is Test {
         vault.withdraw(1000 * ONE_USDC, recipient, true, type(uint).max);
     }
 
-    //TODO: Figure out how much needs to be withdrawn to meet the user demand
-    //if
     function testWithdrawalNoImpermanentLoss() public {
         uint upTo = envWithDefault("DebugUpTo", type(uint).max);
         uint seeSawIterations = envWithDefault("seeSaw", type(uint).max);
