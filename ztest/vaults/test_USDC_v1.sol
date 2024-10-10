@@ -45,6 +45,7 @@ contract Test_Token is ERC20 {
  * of full coverage.
  *
  */
+
 contract test_USDC_v1 is Test {
     uint constant ONE_USDC = 1e6;
     uint constant ONE = 1 ether;
@@ -65,18 +66,44 @@ contract test_USDC_v1 is Test {
     PriceTilter priceTilter;
     event setupBooster(address boo);
 
+    function addContractName(
+        string memory name,
+        address contractAddrress
+    ) internal {
+        string[] memory inputs = new string[](4);
+        inputs[
+            0
+        ] = "/home/justin/code/BehodlerReborn/reflax/node_modules/.bin/ts-node"; // Command to invoke ts-node
+        inputs[1] = "ztest/address-name-mapper.ts"; // The TypeScript file
+        inputs[2] = name; // The contract name
+        inputs[3] = vm.toString(contractAddrress); // The contract address
+        vm.ffi(inputs);
+    }
+
+    ArbitrumConstants constants = new ArbitrumConstants();
+
     function setUp() public {
         uint upTo = envWithDefault("DebugUpTo", type(uint).max);
-        ArbitrumConstants constants = new ArbitrumConstants();
+
         if (upTo <= 1) return;
         USDC = IERC20(constants.USDC());
         USDe = IERC20(constants.USDe());
         USDx = IERC20(constants.USDx());
         Flax = new Test_Token("Flax", ONE);
         CRV = IERC20(constants.CRV());
+        addContractName("USDC", address(USDC));
+        addContractName("USDe", address(USDe));
+        addContractName("USDx", address(USDx));
+        addContractName("Flax", address(Flax));
 
         if (upTo <= 2) return;
         uniswapMaker = new LocalUniswap(constants.sushiV2RouterO2_address());
+        (address uniRouter, address uniFactory, address uniWeth) = uniswapMaker
+            .getAddresses();
+        addContractName("uniRouter", address(uniRouter));
+        addContractName("uniFactory", address(uniFactory));
+        addContractName("uniWeth", address(uniWeth));
+
         /*
             1. crv pool (USDe/USDx)
             2. crv pool (USDC/USDe)
@@ -92,14 +119,22 @@ contract test_USDC_v1 is Test {
             */
 
         CRV_pool USDe_USDx_crv = CRV_pool(constants.USDe_USDx_address());
+        addContractName("USDe_USDx_crv", address(USDe_USDx_crv));
         if (upTo <= 3) return;
         CRV_pool USDC_USDe_crv = CRV_pool(constants.USDC_USDe_address());
+        addContractName("USDC_USDe_crv", constants.USDC_USDe_address());
 
-        uint whaleBalance = USDC.balanceOf(constants.USDC_whale());
+        uint USDC_whaleBalance = USDC.balanceOf(constants.USDC_whale());
         if (upTo <= 4) return;
         //"steal" USDC from whale to use in testing
         vm.prank(constants.USDC_whale());
-        USDC.transfer(address(this), whaleBalance);
+        USDC.transfer(address(this), USDC_whaleBalance);
+
+        //"steal" USDe from whale to use in testing
+        uint USDe_whaleBalance = USDe.balanceOf(constants.USDe_whale());
+        vm.prank(constants.USDe_whale());
+        USDe.transfer(address(this), USDe_whaleBalance);
+
         if (upTo <= 5) return;
         USDC.approve(address(USDC_USDe_crv), type(uint).max);
 
@@ -108,21 +143,27 @@ contract test_USDC_v1 is Test {
         USDx.approve(address(USDe_USDx_crv), type(uint).max);
         if (upTo <= 6) return;
         CVX_pool convexPool = CVX_pool(constants.convexPool_address());
-
+        addContractName("convexPool", constants.convexPool_address());
         AConvexBooster convexBooster = AConvexBooster(
             constants.convexBooster_address()
         );
+        addContractName("convexBooster", constants.convexBooster_address());
         vault = new USDC_v1(address(USDC));
+        addContractName("vault", address(vault));
+
         USDC.approve(address(vault), type(uint).max);
         if (upTo <= 7) return;
         (address router, address factory, address weth) = uniswapMaker
             .getAddresses();
         if (upTo <= 8) return;
+
         yieldSource = new USDe_USDx_ys(
             address(USDC),
             router,
             constants.convexPoolId()
         );
+        addContractName("yieldSource", address(yieldSource));
+
         if (upTo <= 9) return;
         yieldSource.setConvex(address(convexBooster));
         if (upTo <= 10) return;
@@ -138,6 +179,7 @@ contract test_USDC_v1 is Test {
         //price tilter
         if (upTo <= 15) return;
         oracle = new StandardOracle(factory, upTo);
+        addContractName("oracle", address(oracle));
         if (upTo <= 20) return;
         vm.assertNotEq(weth, address(0));
 
@@ -147,6 +189,7 @@ contract test_USDC_v1 is Test {
             address(Flax),
             weth
         );
+        addContractName("refPair(FLX/Weth)", referencePairAddress);
         if (upTo <= 22) return;
         Flax.mintUnits(1000, referencePairAddress);
         vm.deal(address(this), 100 ether);
@@ -162,7 +205,7 @@ contract test_USDC_v1 is Test {
             address(CRV),
             weth
         );
-
+        addContractName("rewardPairAddress(Crv/Weth)", rewardPairAddress);
         //end create reward pair
 
         oracle.RegisterPair(referencePairAddress, 30);
@@ -188,28 +231,31 @@ contract test_USDC_v1 is Test {
         if (upTo <= 53) return;
 
         staker = new MockCoreStaker();
-
+        addContractName("mock staker", address(staker));
         if (upTo <= 55) return;
         boosterV1 = new BoosterV1(address(staker));
 
+        addContractName("boosterV1", address(boosterV1));
         if (upTo <= 60) return;
 
         emit setupBooster(address(boosterV1));
         vault.setConfig(
-            UtilLibrary.toAsciiString(address(Flax)),
-            UtilLibrary.toAsciiString(address(yieldSource)),
-            UtilLibrary.toAsciiString(address(boosterV1))
+            vm.toString(address(Flax)),
+            vm.toString(address(yieldSource)),
+            vm.toString(address(boosterV1))
         );
 
         yieldSource.configure(
             1,
-            UtilLibrary.toAsciiString(address(USDC)),
-            UtilLibrary.toAsciiString(address(priceTilter)),
+            vm.toString(address(USDC)),
+            vm.toString(address(priceTilter)),
             "convex",
             "",
-            UtilLibrary.toAsciiString(address(vault))
+            vm.toString(address(vault))
         );
         vm.warp(vm.getBlockTimestamp() + 100);
+
+        Flax.mintUnits(1000_000_000, address(vault));
     }
 
     function testSetup() public {}
@@ -254,7 +300,6 @@ contract test_USDC_v1 is Test {
         uint flaxBalanceBefore = Flax.balanceOf(user1);
         require(upTo > 100000, "up to");
         //Vault needs to be topped up because there's no minting on Arbitrum
-        Flax.mintUnits(1000_000, address(vault));
 
         uint flaxPriceBefore = wethToFlaxRatio();
 
@@ -299,70 +344,70 @@ contract test_USDC_v1 is Test {
 
     //     /*-----------withdrawUnaccountedForToken----------------------*/
 
-        function testWithdraw_unaccounted_for_token() public {
-            Test_Token newToken = new Test_Token("unkown", ONE);
-            newToken.mintUnits(1000, address(vault));
-            address unauthorizedUser = address(0x1);
+    function testWithdraw_unaccounted_for_token() public {
+        Test_Token newToken = new Test_Token("unkown", ONE);
+        newToken.mintUnits(1000, address(vault));
+        address unauthorizedUser = address(0x1);
 
-            vm.expectRevert(
-                abi.encodeWithSelector(
-                    Ownable.OwnableUnauthorizedAccount.selector,
-                    address(unauthorizedUser)
-                )
-            );
-            vm.prank(unauthorizedUser);
-            vault.withdrawUnaccountedForToken(address(newToken));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                Ownable.OwnableUnauthorizedAccount.selector,
+                address(unauthorizedUser)
+            )
+        );
+        vm.prank(unauthorizedUser);
+        vault.withdrawUnaccountedForToken(address(newToken));
 
-            vault.withdrawUnaccountedForToken(address(newToken));
-            uint balanceOfNewToken = newToken.balanceOf(address(this));
-            vm.assertEq(balanceOfNewToken, 1000 * ONE);
-        }
+        vault.withdrawUnaccountedForToken(address(newToken));
+        uint balanceOfNewToken = newToken.balanceOf(address(this));
+        vm.assertEq(balanceOfNewToken, 1000 * ONE);
+    }
 
     //     /*-----------setConfig----------------------*/
 
-        function testSetConfig() public {
-            address newAddress = address(
-                0x95222290DD7278Aa3Ddd389Cc1E1d165CC4BAfe5
-            );
-            (
-                ,
-                IERC20 flx_before,
-                AYieldSource yield_before,
-                IBooster booster_before
-            ) = vault.config();
+    function testSetConfig() public {
+        address newAddress = address(
+            0x95222290DD7278Aa3Ddd389Cc1E1d165CC4BAfe5
+        );
+        (
+            ,
+            IERC20 flx_before,
+            AYieldSource yield_before,
+            IBooster booster_before
+        ) = vault.config();
 
-            vault.setConfig("0x95222290DD7278Aa3Ddd389Cc1E1d165CC4BAfe5", "", "");
-            (
-                ,
-                IERC20 flx_after,
-                AYieldSource yield_after,
-                IBooster booster_after
-            ) = vault.config();
+        vault.setConfig("0x95222290DD7278Aa3Ddd389Cc1E1d165CC4BAfe5", "", "");
+        (
+            ,
+            IERC20 flx_after,
+            AYieldSource yield_after,
+            IBooster booster_after
+        ) = vault.config();
 
-            vm.assertEq(address(flx_after), newAddress);
-            vm.assertEq(address(yield_before), address(yield_after));
-            vm.assertEq(address(booster_before), address(booster_after));
+        vm.assertEq(address(flx_after), newAddress);
+        vm.assertEq(address(yield_before), address(yield_after));
+        vm.assertEq(address(booster_before), address(booster_after));
 
-            (, flx_before, yield_before, booster_before) = vault.config();
+        (, flx_before, yield_before, booster_before) = vault.config();
 
-            vault.setConfig("", "0x95222290DD7278Aa3Ddd389Cc1E1d165CC4BAfe5", "");
+        vault.setConfig("", "0x95222290DD7278Aa3Ddd389Cc1E1d165CC4BAfe5", "");
 
-            (, flx_after, yield_after, booster_after) = vault.config();
+        (, flx_after, yield_after, booster_after) = vault.config();
 
-            vm.assertEq(address(flx_after), address(flx_before));
-            vm.assertEq(address(yield_after), newAddress);
-            vm.assertEq(address(booster_before), address(booster_after));
+        vm.assertEq(address(flx_after), address(flx_before));
+        vm.assertEq(address(yield_after), newAddress);
+        vm.assertEq(address(booster_before), address(booster_after));
 
-            (, flx_before, yield_before, booster_before) = vault.config();
+        (, flx_before, yield_before, booster_before) = vault.config();
 
-            vault.setConfig("", "", "0x95222290DD7278Aa3Ddd389Cc1E1d165CC4BAfe5");
+        vault.setConfig("", "", "0x95222290DD7278Aa3Ddd389Cc1E1d165CC4BAfe5");
 
-            (, flx_after, yield_after, booster_after) = vault.config();
+        (, flx_after, yield_after, booster_after) = vault.config();
 
-            vm.assertEq(address(flx_after), address(flx_before));
-            vm.assertEq(address(yield_after), address(yield_before));
-            vm.assertEq(newAddress, address(booster_after));
-        }
+        vm.assertEq(address(flx_after), address(flx_before));
+        vm.assertEq(address(yield_after), address(yield_before));
+        vm.assertEq(newAddress, address(booster_after));
+    }
 
     //     /*-----------------migrateYieldSouce----------------------*/
 
@@ -407,23 +452,120 @@ contract test_USDC_v1 is Test {
     //         // vault.migrateYieldSouce(address(yieldSource2));
     //     }
 
-        function testSimpleImmediateWithdrawal() public {
-            uint upTo = envWithDefault("DebugUpTo", type(uint).max);
-            USDC.approve(address(vault), type(uint).max);
+    function testSimpleImmediateWithdrawal() public {
+        uint upTo = envWithDefault("DebugUpTo", type(uint).max);
+        USDC.approve(address(vault), type(uint).max);
 
-            uint usdcBalanceBefore = USDC.balanceOf(address(this));
-            vault.stake(1000 * ONE_USDC, upTo);
-            uint usdcBalanceAfter = USDC.balanceOf(address(this));
-            vm.assertEq(usdcBalanceBefore, usdcBalanceAfter + 1000 * ONE_USDC);
+        uint usdcBalanceBefore = USDC.balanceOf(address(this));
+        vault.stake(1000 * ONE_USDC, upTo);
+        uint usdcBalanceAfter = USDC.balanceOf(address(this));
+        vm.assertEq(usdcBalanceBefore, usdcBalanceAfter + 1000 * ONE_USDC);
 
-            require(upTo > 1000000, "Up to testSimple");
-            address recipient = address(0x1);
-            vault.withdraw(1000 * ONE_USDC, recipient, true);
+        require(upTo > 1000000, "Up to testSimple");
+        address recipient = address(0x1);
+        vault.withdraw(1000 * ONE_USDC, recipient, true, type(uint).max);
+    }
+
+    //TODO: Figure out how much needs to be withdrawn to meet the user demand
+    //if
+    function testWithdrawalNoImpermanentLoss() public {
+        uint upTo = envWithDefault("DebugUpTo", type(uint).max);
+        uint seeSawIterations = envWithDefault("seeSaw", type(uint).max);
+        USDC.approve(address(vault), type(uint).max);
+
+        uint usdcBalanceBefore = USDC.balanceOf(address(this));
+        vault.stake(1000 * ONE_USDC, upTo);
+        vm.warp(vm.getBlockTimestamp() + 10_000 * 60);
+        seeSawTrade(seeSawIterations);
+        uint usdcBalanceAfter = USDC.balanceOf(address(this));
+
+        uint flaxBalanceOfVault = Flax.balanceOf(address(vault));
+        require(flaxBalanceOfVault > 1000_000, vm.toString(flaxBalanceOfVault));
+        require(upTo > 1000000, "Up to testSimple");
+        address recipient = address(0x1);
+
+        uint withdrawalAmount = envWithDefault("withdrawalAmount", 1000);
+        uint initialWithDrawalAmount = withdrawalAmount / 10;
+        withdrawalAmount -= initialWithDrawalAmount;
+
+        vault.withdraw(
+            initialWithDrawalAmount * ONE_USDC,
+            recipient,
+            false,
+            upTo
+        );
+
+        vm.expectRevert("Withdrawal halted: impermanent loss");
+        vault.withdraw(withdrawalAmount * ONE_USDC, recipient, false, upTo);
+    }
+
+    struct SeeSawConfig {
+        CRV_pool pool;
+        uint token1Unit;
+        IERC20 token1;
+        IERC20 token2;
+    }
+
+    event currentSeeSawIteration(uint iteration);
+    event aboutToSeeSawTrade(uint direction);
+
+    //The purpose of this function is to decrease IL in a CRV pair
+    function seeSawTrade(uint iterations) internal {
+        SeeSawConfig[] memory tradeConfig = new SeeSawConfig[](2);
+        tradeConfig[0].pool = CRV_pool(constants.USDC_USDe_address());
+        tradeConfig[0].token1Unit = 1e10;
+        tradeConfig[0].token1 = USDC;
+        tradeConfig[0].token2 = USDe;
+
+        tradeConfig[1].pool = CRV_pool(constants.USDe_USDx_address());
+        tradeConfig[1].token1Unit = 1e18;
+        tradeConfig[1].token1 = USDe;
+        tradeConfig[1].token2 = USDx;
+
+        /**
+         * 1. Find out current price of USDC_USDe
+         * 2. Mint lots of USDC and sell into pair.
+         * 3. Find out how much USDe is needed to restore price
+         * 4. mint that much and assert that price is more or less restored
+         */
+        for (uint c = 0; c < 2; c++) {
+            emit currentSeeSawIteration(c);
+            SeeSawConfig memory current = tradeConfig[c];
+            current.token1.approve(address(current.pool), type(uint).max);
+            current.token2.approve(address(current.pool), type(uint).max);
+
+            for (uint i = 0; i < iterations; i++) {
+                uint token2Bought = current.pool.get_dy(
+                    0,
+                    1,
+                    current.token1Unit
+                );
+
+                uint token2BalanceBefore = current.token2.balanceOf(
+                    address(this)
+                );
+                emit aboutToSeeSawTrade(0);
+                current.pool.exchange(
+                    0,
+                    1,
+                    current.token1Unit,
+                    0,
+                    address(this)
+                );
+
+                uint token2BalanceAfter = current.token2.balanceOf(
+                    address(this)
+                );
+
+                uint token1Reclaimed = current.pool.get_dy(1, 0, token2Bought);
+                uint token1_before = current.token1.balanceOf(address(this));
+
+                emit aboutToSeeSawTrade(1);
+                current.pool.exchange(1, 0, token2Bought, 0, address(this));
+                uint token1_after = current.token1.balanceOf(address(this));
+            }
         }
-
-        function testWithdrawalNoImpermanentLoss() public {
-            require(false, "NOT IMPLEMENTED");
-        }
+    }
 
     function envWithDefault(
         string memory env_var,

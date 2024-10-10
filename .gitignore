@@ -15,3 +15,6 @@ docs/
 .envrc
 private/
 eventLogTestOutput
+
+node_modules/
+ztest/contract_addresses.txt

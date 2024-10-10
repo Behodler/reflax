@@ -19,9 +19,10 @@ contract USDC_v1 is AVault {
     function withdraw(
         uint amount,
         address recipient,
-        bool allowImpermanentLoss
+        bool allowImpermanentLoss,
+        uint upTo
     ) public {
-        _withdraw(amount, msg.sender, recipient, allowImpermanentLoss);
+        _withdraw(amount, msg.sender, recipient, allowImpermanentLoss, upTo);
     }
 
     function claim(address recipient, uint upTo) public onlyOwner {

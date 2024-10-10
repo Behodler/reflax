@@ -121,9 +121,10 @@ abstract contract AVault is Ownable, ReentrancyGuard {
         uint amount,
         address staker,
         address recipient,
-        bool allowImpermanentLoss
+        bool allowImpermanentLoss,
+        uint upTo
     ) internal updateStakeAccounting(staker) nonReentrant {
-        _claim(staker, recipient, type(uint).max);
+        _claim(staker, recipient, upTo);
         accounting.sharesBalance[staker] -= amount;
         accounting.totalShares -= amount;
         config.yieldSource.releaseInput(
@@ -142,24 +143,24 @@ abstract contract AVault is Ownable, ReentrancyGuard {
         require(upTo > 105000, "Up to in claimAndUpdate");
     }
 
-    event bonus_parameters(uint u, address c);
+    event transferAmount(uint u);
 
     function _claim(address caller, address recipient, uint upTo) private {
         uint unclaimedFlax = accounting.unclaimedFlax[caller];
         accounting.unclaimedFlax[caller] = 0;
-        require(upTo > 101000, "up to claim");
+        require(upTo > 10100000, "up to claim");
 
         require(address(config.booster) != address(0), "booster not set");
-        emit bonus_parameters(unclaimedFlax, caller);
         uint flaxToTransfer = (config.booster.percentageBoost(
             caller,
             unclaimedFlax
         ) * unclaimedFlax) / config.booster.BasisPoints();
-        require(upTo > 102000, "up to claim");
+        require(upTo > 10200000, "up to claim");
+        emit transferAmount(flaxToTransfer);
         config.flax.transfer(recipient, flaxToTransfer);
-        require(upTo > 103000, "up to claim");
+        require(upTo > 10300000, "up to claim");
         config.booster.updateWeight(caller);
-        require(upTo > 104000, "up to claim");
+        require(upTo > 10400000, "up to claim");
     }
 
     /// implement this to create non linear returns. returning parameter makes it linear.

@@ -102,8 +102,9 @@ abstract contract AYieldSource is Ownable {
 
     //end hooks
 
-    event fundOpen ();
-    event transferSuccessful ();
+    event fundOpen();
+    event transferSuccessful();
+
     function deposit(
         uint amount,
         address staker,
@@ -141,6 +142,8 @@ abstract contract AYieldSource is Ownable {
         return (flaxValueOfTilt, get_input_value_of_protocol_deposit_hook());
     }
 
+    event ReleaseInputValues(uint assetBalanceAfter, uint amount);
+
     function releaseInput(
         address recipient,
         uint amount,
@@ -148,16 +151,20 @@ abstract contract AYieldSource is Ownable {
     ) public approvedVault {
         uint protolUnitsToWithdraw = protocolBalance_hook();
 
-        uint assetBalanceBefore = IERC20(inputToken).balanceOf(address(this));
         release_hook(protolUnitsToWithdraw, amount);
         uint assetBalanceAfter = IERC20(inputToken).balanceOf(address(this));
 
+        emit ReleaseInputValues(assetBalanceAfter, amount);
         require(
-            allowImpermanentLoss ||
-                assetBalanceAfter > amount,
+            allowImpermanentLoss || assetBalanceAfter > amount,
             "Withdrawal halted: impermanent loss"
         );
-        IERC20(inputToken).transfer(recipient, assetBalanceAfter);
+
+        //allow impermanent gain to accumulate in contract so that future IL is absorbed
+        IERC20(inputToken).transfer(
+            recipient,
+            assetBalanceAfter > amount ? amount : assetBalanceAfter
+        );
         totalDeposits -= amount;
     }
 }

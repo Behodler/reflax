@@ -240,14 +240,19 @@ contract USDe_USDx_ys is AYieldSource {
         convex.pool.getReward(address(this));
     }
 
-    event USDe_taken(uint USDe);
+    event actualVsDesiredUSDC(uint actual, uint desired);
 
     function release_hook(
         uint protocolUnitsBalance,
         uint desiredTokenUnitAmount
     ) internal override {
+        uint actualUSDC_balance = IERC20(inputToken).balanceOf(address(this));
+        if (actualUSDC_balance > 0) {
+            if (actualUSDC_balance < desiredTokenUnitAmount)
+                desiredTokenUnitAmount -= actualUSDC_balance;
+        }
         uint USDe_dy = crvPools.USDC_USDe.get_dy(0, 1, desiredTokenUnitAmount);
-        emit USDe_taken(USDe_dy);
+
         /*
         1. Get USDC_USDe pool
         2. Find out how much USDe you could get for that desired USDc amount
@@ -259,11 +264,15 @@ contract USDe_USDx_ys is AYieldSource {
         */
 
         uint[] memory withdrawOfUSDeAmounts = new uint[](2);
+        //question: is this index correct
         withdrawOfUSDeAmounts[0] = USDe_dy;
+
         uint protocolUnitsNeeded = crvPools.convexPool.calc_token_amount(
             withdrawOfUSDeAmounts,
             false
         );
+
+        protocolUnitsNeeded = (protocolUnitsNeeded * 10) / 9;
         protocolUnitsNeeded = protocolUnitsBalance > protocolUnitsNeeded
             ? protocolUnitsNeeded
             : protocolUnitsBalance;
@@ -271,13 +280,20 @@ contract USDe_USDx_ys is AYieldSource {
         crvPools.convexPool.remove_liquidity_one_coin(
             protocolUnitsNeeded,
             0,
-            (USDe_dy * 9) / 10,
+            (USDe_dy * 9) / 10, 
             address(this)
         );
         uint usde_balance = crvPools.USDe.balanceOf(address(this));
-        uint USDC_dy = crvPools.USDC_USDe.get_dy(1, 0, usde_balance);
 
-        crvPools.USDC_USDe.exchange(1, 0, usde_balance, USDC_dy, address(this));
+        crvPools.USDC_USDe.exchange(
+            1,
+            0,
+            usde_balance,
+            (desiredTokenUnitAmount * 9) / 10,
+            address(this)
+        );
+        uint usdcBalance = IERC20(inputToken).balanceOf(address(this));
+        emit actualVsDesiredUSDC(usdcBalance, desiredTokenUnitAmount);
     }
 
     event get_input_value_of_protocol_deposit_hook_EVENT(

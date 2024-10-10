@@ -25,4 +25,6 @@ contract ArbitrumConstants {
         address(0x11cDb42B0EB46D95f990BeDD4695A6e3fA034978);
     address public constant USDC_whale =
         address(0x2Df1c51E09aECF9cacB7bc98cB1742757f163dF7);
+    address public constant USDe_whale =
+    address(0xA4ffe78ba40B7Ec0C348fFE36a8dE4F9d6198d2d);
 }
