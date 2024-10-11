@@ -64,6 +64,9 @@ contract test_USDC_v1 is Test {
     BoosterV1 boosterV1;
     StandardOracle oracle;
     PriceTilter priceTilter;
+    AConvexBooster convexBooster;
+    CRV_pool USDC_USDe_crv;
+    CRV_pool USDe_USDx_crv;
     event setupBooster(address boo);
 
     function addContractName(
@@ -118,10 +121,10 @@ contract test_USDC_v1 is Test {
             10. vault.setConfig
             */
 
-        CRV_pool USDe_USDx_crv = CRV_pool(constants.USDe_USDx_address());
+        USDe_USDx_crv = CRV_pool(constants.USDe_USDx_address());
         addContractName("USDe_USDx_crv", address(USDe_USDx_crv));
         if (upTo <= 3) return;
-        CRV_pool USDC_USDe_crv = CRV_pool(constants.USDC_USDe_address());
+        USDC_USDe_crv = CRV_pool(constants.USDC_USDe_address());
         addContractName("USDC_USDe_crv", constants.USDC_USDe_address());
 
         uint USDC_whaleBalance = USDC.balanceOf(constants.USDC_whale());
@@ -144,9 +147,7 @@ contract test_USDC_v1 is Test {
         if (upTo <= 6) return;
         CVX_pool convexPool = CVX_pool(constants.convexPool_address());
         addContractName("convexPool", constants.convexPool_address());
-        AConvexBooster convexBooster = AConvexBooster(
-            constants.convexBooster_address()
-        );
+        convexBooster = AConvexBooster(constants.convexBooster_address());
         addContractName("convexBooster", constants.convexBooster_address());
         vault = new USDC_v1(address(USDC));
         addContractName("vault", address(vault));
@@ -411,49 +412,59 @@ contract test_USDC_v1 is Test {
 
     //     /*-----------------migrateYieldSouce----------------------*/
 
-    //     event redeemRateParts(
-    //         uint redeemRate,
-    //         uint protocolBalance_hook,
-    //         uint totalDeposits
-    //     );
-
-    //     function testMigrateYieldSource() public {
-    //         uint upTo = envWithDefault("DebugUpTo", type(uint).max);
-
-    //     USDe_USDx_ys yieldSource2;
-    //         yieldSource2 = new USDe_USDx_ys(address(USDC), address(uniswapMaker.router()), 0);
-    //         yieldSource2.setConvex(address(convexBooster));
-    //         USDC.approve(address(yieldSource2), type(uint).max);
-    //    yieldSource2.setCRV(address(CRV));
-    //         yieldSource2.setCRVPools(
-    //             address(USDC_USDe_crv),
-    //             address(USDe_USDx_crv),
-    //             address(USDe)
-    //         );
-
-    //        yieldSource2.approvals();
-    //         vault.setConfig(
-    //             UtilLibrary.toAsciiString(address(Flax)),
-    //             UtilLibrary.toAsciiString(address(yieldSource2)),
-    //             UtilLibrary.toAsciiString(address(boosterV1))
-    //         );
-
-    //         yieldSource2.configure(
-    //             1,
-    //             UtilLibrary.toAsciiString(address(USDC)),
-    //             UtilLibrary.toAsciiString(address(priceTilter)),
-    //             "convex",
-    //             "",
-    //             UtilLibrary.toAsciiString(address(vault))
-    //         );
-    //         USDC.approve(address(vault), type(uint).max);
-
-    //         vault.stake(1000 * ONE_USDC, upTo);
-    //         // vault.migrateYieldSouce(address(yieldSource2));
-    //     }
+    event redeemRateParts(
+        uint redeemRate,
+        uint protocolBalance_hook,
+        uint totalDeposits
+    );
 
     function test_migrate_yieldSource() public {
-        require(false,"not implemented");
+        uint upTo = envWithDefault("DebugUpTo", type(uint).max);
+
+        USDe_USDx_ys yieldSource2 = new USDe_USDx_ys(
+            address(USDC),
+            address(uniswapMaker.router()),
+            constants.convexPoolId()
+        );
+        yieldSource2.setConvex(address(convexBooster));
+        USDC.approve(address(yieldSource2), type(uint).max);
+        yieldSource2.setCRV(address(CRV));
+        yieldSource2.setCRVPools(
+            address(USDC_USDe_crv),
+            address(USDe_USDx_crv),
+            address(USDe)
+        );
+
+        yieldSource2.approvals();
+        vault.setConfig(
+            UtilLibrary.toAsciiString(address(Flax)),
+            UtilLibrary.toAsciiString(address(yieldSource2)),
+            UtilLibrary.toAsciiString(address(boosterV1))
+        );
+
+        yieldSource2.configure(
+            1,
+            UtilLibrary.toAsciiString(address(USDC)),
+            UtilLibrary.toAsciiString(address(priceTilter)),
+            "convex",
+            "",
+            UtilLibrary.toAsciiString(address(vault))
+        );
+        USDC.approve(address(vault), type(uint).max);
+
+        vault.stake(1000 * ONE_USDC, upTo);
+        vault.migrateYieldSouce(address(yieldSource2));
+        (
+            IERC20 _inputToken,
+            IERC20 _flax,
+            AYieldSource _yieldSource,
+            IBooster _booster
+        ) = vault.config();
+
+        vm.assertEq(address(_inputToken), address(USDC));
+        vm.assertEq(address(_flax), address(Flax));
+        vm.assertEq(address(_yieldSource), address(yieldSource2));
+        vm.assertEq(address(_booster), address(boosterV1));
     }
 
     function testSimpleImmediateWithdrawal() public {

@@ -177,7 +177,11 @@ abstract contract AVault is Ownable, ReentrancyGuard {
             true
         );
         config.yieldSource = AYieldSource(newYieldSource);
-        //TODO approve
-        config.yieldSource.deposit(accounting.totalShares, address(this), 0);
+        IERC20(config.inputToken).approve(
+            address(config.yieldSource),
+            type(uint).max
+        );
+        uint balance = IERC20(config.inputToken).balanceOf(address(this));
+        config.yieldSource.deposit(balance, address(this), type(uint).max);
     }
 }
