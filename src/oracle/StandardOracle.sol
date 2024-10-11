@@ -40,11 +40,9 @@ contract StandardOracle is IOracle, Ownable {
         }
         _;
     }
-    uint upTo;
 
-    constructor(address V2factory, uint _upTo) Ownable(msg.sender) {
+    constructor(address V2factory) Ownable(msg.sender) {
         factory = IUniswapV2Factory(V2factory);
-        upTo = _upTo;
     }
 
     /**

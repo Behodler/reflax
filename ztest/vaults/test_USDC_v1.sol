@@ -179,7 +179,7 @@ contract test_USDC_v1 is Test {
         vm.assertEq(testFlaxConversion, address(Flax));
         //price tilter
         if (upTo <= 15) return;
-        oracle = new StandardOracle(factory, upTo);
+        oracle = new StandardOracle(factory);
         addContractName("oracle", address(oracle));
         if (upTo <= 20) return;
         vm.assertNotEq(weth, address(0));
@@ -266,9 +266,9 @@ contract test_USDC_v1 is Test {
     function testMaxStake() public {
         uint upTo = envWithDefault("DebugUpTo", type(uint).max);
         require(upTo > 100, "up to");
-        vault.stake(7000 * ONE_USDC, upTo);
+        vault.stake(7000 * ONE_USDC);
         require(upTo > 120000, "Up to in testMaxStake() reached");
-        vault.stake(2999 * ONE_USDC, upTo);
+        vault.stake(2999 * ONE_USDC);
         require(
             upTo > 121000,
             "Up to in testMaxStake(): about to blow the lid"
@@ -279,7 +279,7 @@ contract test_USDC_v1 is Test {
                 "Vault capped at 10000 USDC"
             )
         );
-        vault.stake(2 * ONE_USDC, upTo);
+        vault.stake(2 * ONE_USDC);
     }
 
     //     /*-----------stake----------------------*/
@@ -291,7 +291,7 @@ contract test_USDC_v1 is Test {
         uint upTo = envWithDefault("DebugUpTo", type(uint).max);
         USDC.approve(address(vault), type(uint).max);
         require(upTo > 100, "up to");
-        vault.stake(1000 * ONE_USDC, upTo);
+        vault.stake(1000 * ONE_USDC);
         address user1 = address(0x1);
         uint initialBlockTimeStamp = vm.getBlockTimestamp();
 
@@ -304,7 +304,7 @@ contract test_USDC_v1 is Test {
 
         uint flaxPriceBefore = wethToFlaxRatio();
 
-        vault.claim(user1, upTo);
+        vault.claim(user1);
         require(upTo > 110000, "up to test");
         uint flaxBalanceAfter = Flax.balanceOf(user1);
         vm.assertGt(flaxBalanceAfter, flaxBalanceBefore);
@@ -322,7 +322,7 @@ contract test_USDC_v1 is Test {
         uint upTo = envWithDefault("DebugUpTo", type(uint).max);
         USDC.approve(address(vault), type(uint).max);
         require(upTo > 100, "up to");
-        vault.stake(1000 * ONE_USDC, upTo);
+        vault.stake(1000 * ONE_USDC);
         address user1 = address(0x1);
 
         uint flaxBalanceBefore = Flax.balanceOf(user1);
@@ -331,7 +331,7 @@ contract test_USDC_v1 is Test {
 
         uint flaxBalanceOnVault_before = Flax.balanceOf(address(vault));
         uint flaxPriceBefore = wethToFlaxRatio();
-        vault.claim(user1, upTo);
+        vault.claim(user1);
 
         uint flaxBalanceOnVault_after = Flax.balanceOf(address(vault));
 
@@ -452,7 +452,7 @@ contract test_USDC_v1 is Test {
         );
         USDC.approve(address(vault), type(uint).max);
 
-        vault.stake(1000 * ONE_USDC, upTo);
+        vault.stake(1000 * ONE_USDC);
         vault.migrateYieldSouce(address(yieldSource2));
         (
             IERC20 _inputToken,
@@ -472,13 +472,13 @@ contract test_USDC_v1 is Test {
         USDC.approve(address(vault), type(uint).max);
 
         uint usdcBalanceBefore = USDC.balanceOf(address(this));
-        vault.stake(1000 * ONE_USDC, upTo);
+        vault.stake(1000 * ONE_USDC);
         uint usdcBalanceAfter = USDC.balanceOf(address(this));
         vm.assertEq(usdcBalanceBefore, usdcBalanceAfter + 1000 * ONE_USDC);
 
         require(upTo > 1000000, "Up to testSimple");
         address recipient = address(0x1);
-        vault.withdraw(1000 * ONE_USDC, recipient, true, type(uint).max);
+        vault.withdraw(1000 * ONE_USDC, recipient, true);
     }
 
     function testWithdrawalNoImpermanentLoss() public {
@@ -487,7 +487,7 @@ contract test_USDC_v1 is Test {
         USDC.approve(address(vault), type(uint).max);
 
         uint usdcBalanceBefore = USDC.balanceOf(address(this));
-        vault.stake(1000 * ONE_USDC, upTo);
+        vault.stake(1000 * ONE_USDC);
         vm.warp(vm.getBlockTimestamp() + 10_000 * 60);
         seeSawTrade(seeSawIterations);
         uint usdcBalanceAfter = USDC.balanceOf(address(this));
@@ -501,15 +501,10 @@ contract test_USDC_v1 is Test {
         uint initialWithDrawalAmount = withdrawalAmount / 10;
         withdrawalAmount -= initialWithDrawalAmount;
 
-        vault.withdraw(
-            initialWithDrawalAmount * ONE_USDC,
-            recipient,
-            false,
-            upTo
-        );
+        vault.withdraw(initialWithDrawalAmount * ONE_USDC, recipient, false);
 
         vm.expectRevert("Withdrawal halted: impermanent loss");
-        vault.withdraw(withdrawalAmount * ONE_USDC, recipient, false, upTo);
+        vault.withdraw(withdrawalAmount * ONE_USDC, recipient, false);
     }
 
     struct SeeSawConfig {

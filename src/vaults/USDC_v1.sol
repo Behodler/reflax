@@ -12,21 +12,20 @@ contract USDC_v1 is AVault {
         maxStake = max;
     }
 
-    function stake(uint amount, uint upTo) public {
-        _stake(amount, msg.sender, upTo);
+    function stake(uint amount) public {
+        _stake(amount, msg.sender);
     }
 
     function withdraw(
         uint amount,
         address recipient,
-        bool allowImpermanentLoss,
-        uint upTo
+        bool allowImpermanentLoss
     ) public {
-        _withdraw(amount, msg.sender, recipient, allowImpermanentLoss, upTo);
+        _withdraw(amount, msg.sender, recipient, allowImpermanentLoss);
     }
 
-    function claim(address recipient, uint upTo) public onlyOwner {
-        _claimAndUpdate(recipient, msg.sender,upTo);
+    function claim(address recipient) public onlyOwner {
+        _claimAndUpdate(recipient, msg.sender);
     }
 
     function calculate_derived_yield_increment(

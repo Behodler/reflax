@@ -77,7 +77,7 @@ abstract contract AYieldSource is Ownable {
     string public underlyingProtocolName; //eg. Convex
 
     //hooks for interacting with underlying protocol.
-    function deposit_hook(uint amount, uint upTo) internal virtual;
+    function deposit_hook(uint amount) internal virtual;
 
     function protocolBalance_hook() internal view virtual returns (uint);
 
@@ -104,15 +104,14 @@ abstract contract AYieldSource is Ownable {
 
     function deposit(
         uint amount,
-        address staker,
-        uint upTo
+        address staker
     ) public approvedVault {
         if (!open) {
             revert FundClosed();
         }
         IERC20(inputToken).transferFrom(staker, address(this), amount);
         totalDeposits += amount;
-        deposit_hook(amount, upTo);
+        deposit_hook(amount);
     }
 
     function advanceYield()

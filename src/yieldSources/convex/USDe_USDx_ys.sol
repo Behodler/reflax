@@ -185,21 +185,16 @@ contract USDe_USDx_ys is AYieldSource {
     }
 
     //Hooks
-    event USDE_USDX_MINTED(uint amount);
 
-    function deposit_hook(uint amount, uint upTo) internal override {
-        require(upTo > 99050, "UP TO deposit hook");
+    function deposit_hook(uint amount) internal override {
         //USDC is index 1
 
         uint dy = crvPools.USDC_USDe.get_dy(0, 1, amount);
         require(dy > 0, "no dy");
         //SWAP USDC for USDE
-        require(upTo > 99100, "UP TO deposit hook");
         crvPools.USDC_USDe.exchange(0, 1, amount, dy, address(this));
-        require(upTo > 99200, "UP TO deposit hook");
         uint USDe_balance = crvPools.USDe.balanceOf(address(this));
         require(USDe_balance >= dy, "USDC_USDe swap failed");
-        require(upTo > 99300, "UP TO deposit hook");
 
         uint[] memory liquidity = new uint[](2);
         liquidity[0] = USDe_balance;
@@ -210,25 +205,8 @@ contract USDe_USDx_ys is AYieldSource {
         uint balanceOfConvexPool = IERC20(address(crvPools.convexPool))
             .balanceOf(address(this));
         require(balanceOfConvexPool > 10000, "No USDE_USDx minted");
-        emit USDE_USDX_MINTED(balanceOfConvexPool);
-        require(upTo > 99305, "UP TO deposit hook");
-        /*
-           uint[] memory liquidity = new uint[](2);
-        liquidity[0] = 100_000 * ONE_USDC;
-        liquidity[1] = 100_000 * ONE;
-
-        USDC_USDe_crv.addLiquidity(liquidity, 0, address(this));
-        uint liquidityMinted = USDC_USDe_crv.balanceOf(address(this));
-
-        vm.assertGt(liquidityMinted, 1 ether);
-
-        liquidity[0] = 100_000 * ONE;
-
-        USDe_USDx_crv.addLiquidity(liquidity, 0, address(this));
-        */
 
         convex.booster.depositAll(convex.poolId);
-        require(upTo > 99400, "UP TO deposit hook");
     }
 
     function protocolBalance_hook() internal view override returns (uint) {
