@@ -287,7 +287,7 @@ contract test_USDC_v1 is Test {
     //     /*-----------withdraw----------------------*/
 
     //     /*-----------claim----------------------*/
-    function testAccumulateRewards() public {
+    function testClaim_accumulate_rewards() public {
         uint upTo = envWithDefault("DebugUpTo", type(uint).max);
         USDC.approve(address(vault), type(uint).max);
         require(upTo > 100, "up to");

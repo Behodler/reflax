@@ -81,12 +81,11 @@ abstract contract AVault is Ownable, ReentrancyGuard {
 
         _;
     }
-    event advanceYield(uint flaxValueOfTitl, uint currentDepositBalance);
+
     modifier updateStakeAccounting(address caller) {
         (uint flaxValueOfTilt, uint currentDepositBalance) = config
             .yieldSource
             .advanceYield();
-        emit advanceYield(flaxValueOfTilt, currentDepositBalance);
         if (currentDepositBalance > 0) {
             accounting
                 .aggregateFlaxPerShare += ((calculate_derived_yield_increment(
