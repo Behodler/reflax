@@ -10,5 +10,6 @@
 @uniswap/v2-core/contracts/=lib/UniswapV2CoreFoundryFriendly/src
 @hedgey/lockup=lib/Locked_VestingTokenPlans/contracts/LockupPlans
 @oz_hedgey/contracts=lib/Locked_VestingTokenPlans/contracts/oz
-@forge-std=lib/forge-std/src
+@forge-reflax=lib/forge-std/src
 @test=ztest
+@sflax/contracts=lib/SFlax/src

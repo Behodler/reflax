@@ -2,16 +2,14 @@
 pragma solidity ^0.8.20;
 
 import {IBooster} from "@reflax/booster/IBooster.sol";
-import {IStaker} from "src/governance/CoreStaker.sol";
+import {ISFlax} from "@sflax/contracts/SFlax.sol";
 
 //For those concerned with the hardcoded numbers below, this contract can be swapped out. It just reflects current conditions at the time of coding.
 contract BoosterV1 is IBooster {
-    IStaker staker;
-    uint public constant LOWER_THRESHOLD = 48 * 1000; //minimum Flax staked for maximum time
-    uint public constant HIGHER_THERSHOLD = 48 * 1000_000; //close to total supply of Flax currently staked for maximum time
+    ISFlax sFlax;
 
-    constructor(address coreStaker) {
-        staker = IStaker(coreStaker);
+    constructor(address _sFlax) {
+        sFlax = ISFlax(_sFlax);
     }
 
     /* 48000 = 1000 stake for 4 years. So let this be the first threshold. 
@@ -20,44 +18,32 @@ contract BoosterV1 is IBooster {
         48_000_000 = 1000_000 for 4 years.
 */
 
-    //only boosted above 4800 weight.
     function percentageBoost(
         address claimant,
         uint baseFlax
-    ) public view returns (uint boost) {
-        (, , uint weight, ) = staker.linenStats(claimant);
+    ) public view returns (uint boost, uint sFlaxBalanceToBurn) {
+        sFlaxBalanceToBurn = sFlax.balanceOf(claimant);
 
-        boost = BasisPoints();
-        if (weight >= LOWER_THRESHOLD) {
-            uint boostMultiple = 0;
-
-            uint extra = 0;
-            for (
-                uint divider = LOWER_THRESHOLD;
-                divider <= HIGHER_THERSHOLD;
-                divider *= 10
-            ) {
-                if (weight > divider) {
-                    boostMultiple++;
-                    continue;
-                } else {
-                    uint lowerBound = divider / 10;
-
-                    extra =
-                        ((weight - lowerBound) * BasisPoints()) /
-                        lowerBound;
-                    break;
-                }
-            }
-            boost = boostMultiple * BasisPoints() + extra;
+        boost = (sFlaxBalanceToBurn * BasisPoints()) / (100_000 ether);
+        if (boost == 0) {
+            //don't burn if no boost
+            sFlaxBalanceToBurn = 0;
+            
         }
+
+        //max boost for security: 100%
+        if (boost > 2 * BasisPoints()) {
+            sFlaxBalanceToBurn = 200_000 ether;
+            boost = 2 * BasisPoints();
+        }
+        boost+=BasisPoints();
     }
 
     function BasisPoints() public view returns (uint basisPoints) {
         return 10_000;
     }
 
-    function updateWeight(address depositor) external {
-        staker.decayExistingWeight(depositor);
+    function burnSFlax(address claimant, uint amount) external {
+        sFlax.burnFrom(claimant, amount);
     }
 }

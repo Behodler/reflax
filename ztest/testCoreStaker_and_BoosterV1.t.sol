@@ -1,11 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.20;
 import {IERC20, ERC20} from "@oz_reflax/contracts/token/ERC20/ERC20.sol";
-import {Test} from "@forge-std/Test.sol";
-import {CoreStaker, LinenStats} from "../src/governance/CoreStaker.sol";
-import {TokenLockupPlans} from "./mocks/TokenLockupPlans_managed_time.sol";
+import {Test} from "@forge-reflax/Test.sol";
 import {BoosterV1} from "@reflax/booster/BoosterV1.sol";
-import {HedgeyAdapter} from "../src/governance/HedgeyAdapter.sol";
 
 contract Flax is ERC20 {
     constructor() ERC20("FLAX", "FLX") {}
@@ -20,376 +17,82 @@ contract Flax is ERC20 {
 }
 
 contract testCoreStaker_and_BoosterV1 is Test {
-    CoreStaker staker;
     Flax flax;
+    Flax sFlax;
     address user1 = address(0x1);
     address user2 = address(0x2);
-    TokenLockupPlans tokenLockupPlan;
-
-    function hedgeyAdapter() public view returns (HedgeyAdapter) {
-        (, HedgeyAdapter hedgey) = staker.config();
-        return hedgey;
-    }
 
     function setUp() public {
         flax = new Flax();
-        tokenLockupPlan = new TokenLockupPlans("Hedgey", "hedgey", address(vm));
+        sFlax = new Flax();
 
-        staker = new CoreStaker(
-            address(flax),
-            address(tokenLockupPlan),
-            address(vm)
-        );
         vm.deal(user1, 10000 ether);
         vm.deal(user2, 10000 ether);
 
         flax.mint(3000 ether, user1);
         vm.prank(user1);
-        flax.approve(address(staker), type(uint).max);
 
         flax.mint(3000 ether, user2);
         vm.prank(user2);
-        flax.approve(address(staker), type(uint).max);
-
-        LinenStats memory stats_before;
-        (
-            stats_before.lastUpdatedTimeStamp,
-            stats_before.linen,
-            stats_before.weight,
-            stats_before.remainingBalance
-        ) = staker.linenStats(user1);
-        vm.assertEq(
-            stats_before.lastUpdatedTimeStamp +
-                stats_before.linen +
-                stats_before.weight +
-                stats_before.remainingBalance,
-            0
-        );
     }
 
     function test_empty() public {}
 
-    function test_staking_fails() public {
-        vm.expectRevert("CoreStaker: stake for at least 1 month");
-        staker.stake(10000, 0);
-
-        vm.expectRevert("CoreStaker: maximum stake duration 4 years");
-        staker.stake(10000, 209);
-
-        vm.expectRevert(
-            "CoreStaker: Staked units must be in thousands of Flax"
-        );
-        staker.stake(999, 10);
-
-        vm.expectRevert(
-            "CoreStaker: Staked units must be in thousands of Flax"
-        );
-        staker.stake(1100, 10);
-    }
-
-    function test_staking_locks_unlocks_correcty() public {
-        vm.warp(block.timestamp + 61 * 60);
-        vm.roll(block.number + 1);
-        vm.prank(user1);
-        staker.stake(3000 ether, 12);
-
-        uint lockedBalance = hedgeyAdapter().remainingBalance(user1);
-        vm.assertEq(lockedBalance, 3000 ether);
-
-        LinenStats memory stats_after;
-        (
-            stats_after.lastUpdatedTimeStamp,
-            stats_after.linen,
-            stats_after.weight,
-            stats_after.remainingBalance
-        ) = staker.linenStats(user1);
-
-        vm.assertTrue(
-            stats_after.lastUpdatedTimeStamp >= 3660 &&
-                stats_after.lastUpdatedTimeStamp < 3670
-        );
-        vm.assertEq(stats_after.weight, 36000);
-        vm.assertEq(stats_after.linen, 0);
-
-        uint timestamp_before = block.timestamp;
-        uint year = 31104000;
-
-        vm.warp(timestamp_before + year - 1000);
-        vm.roll(block.number + 1);
-        tokenLockupPlan.redeemAllPlans();
-
-        uint lockedBalance_after_almonst_year = hedgeyAdapter()
-            .remainingBalance(user1);
-        vm.assertEq(lockedBalance_after_almonst_year, 3000 ether);
-
-        vm.warp(timestamp_before + year + 1);
-        vm.roll(block.number + 1);
-
-        vm.prank(user1);
-        tokenLockupPlan.redeemAllPlans();
-        uint lockedBalance_after_year = hedgeyAdapter().remainingBalance(user1);
-        vm.assertEq(lockedBalance_after_year, 0);
-    }
-
-    function test_multiple_locks_decays_weight_as_redeems_happen() public {
-        uint iterations = envWithDefault("iterations", 12);
-        uint amount = envWithDefault("amount", 2000) * (1 ether);
-        flax.mint(iterations * amount, user1);
-
-        for (uint months = 1; months <= iterations; months++) {
-            uint lockedBalanceBefore = hedgeyAdapter().remainingBalance(user1);
-            vm.prank(user1);
-            staker.stake(amount, months);
-            uint lockedBalanceAfter = hedgeyAdapter().remainingBalance(user1);
-            vm.assertEq(lockedBalanceAfter - lockedBalanceBefore, amount);
-        }
-
-        LinenStats memory stats;
-        (
-            stats.lastUpdatedTimeStamp,
-            stats.linen,
-            stats.weight,
-            stats.remainingBalance
-        ) = staker.linenStats(user1);
-        vm.assertGt(stats.weight, 0);
-
-        uint MONTH = (30 days) + 10;
-
-        uint blockNumberBefore = block.number;
-        uint initialBalance = flax.balanceOf(user1);
-        vm.prank(user1);
-        flax.burn(initialBalance);
-
-        uint assertions = envWithDefault("assertions", iterations);
-
-        uint balance_before;
-        uint balance_after;
-        uint previousTimestamp = 0;
-        for (uint i = 1; i <= assertions; i++) {
-            uint currentTimestamp = vm.getBlockTimestamp();
-            vm.assertGt(currentTimestamp, previousTimestamp);
-            vm.warp(vm.getBlockTimestamp() + MONTH);
-            vm.roll(blockNumberBefore + i);
-            previousTimestamp = currentTimestamp;
-
-            balance_before = flax.balanceOf(user1);
-            //sanity check because of vm warp
-            vm.assertEq(balance_after, balance_before);
-            vm.prank(user1);
-            tokenLockupPlan.redeemAllPlans();
-            balance_after = flax.balanceOf(user1);
-            uint growth = balance_after - balance_before;
-            vm.assertEq(growth, amount);
-            uint weightBefore = stats.weight;
-
-            //decay the weight
-            staker.decayExistingWeight(user1);
-            (, , stats.weight, ) = staker.linenStats(user1);
-
-            vm.assertGt(weightBefore, stats.weight);
-
-            //this if block is just to check that the weight doesn't prematurely reach zero.
-            if (i < iterations) {
-                vm.assertGt(stats.weight, 0);
-            } else {
-                vm.assertEq(stats.weight, 0);
-            }
-        }
-    }
-
-    //f(a+b)=f(a)+f(b)
-    function test_weights_are_additive() public {
-        flax.mint(100_000 ether, user1);
-        flax.mint(100_000 ether, user2);
-        uint stake_units = 1e21;
-        vm.prank(user1);
-        staker.stake(65 * stake_units, 2);
-        vm.prank(user1);
-        staker.stake(35 * stake_units, 2);
-
-        vm.prank(user2);
-        staker.stake(100 * stake_units, 2);
-
-        LinenStats memory stats_user1;
-        (, , stats_user1.weight, stats_user1.remainingBalance) = staker
-            .linenStats(user1);
-
-        LinenStats memory stats_user2;
-        (, , stats_user2.weight, stats_user2.remainingBalance) = staker
-            .linenStats(user2);
-
-        vm.assertEq(stats_user1.remainingBalance, stats_user2.remainingBalance);
-
-        vm.assertGt(stats_user1.remainingBalance, 0);
-        // vm.assertEq(stats_user1.weight, 0);
-        vm.assertEq(stats_user1.weight, stats_user2.weight);
-    }
-
-    function test_doubling_time_is_like_doubling_quantity() public {
-        flax.mint(100_000 ether, user1);
-        flax.mint(100_000 ether, user2);
-        uint stake_units = 1e21;
-
-        LinenStats memory stats_user1;
-        (, , stats_user1.weight, stats_user1.remainingBalance) = staker
-            .linenStats(user1);
-
-        LinenStats memory stats_user2;
-        (, , stats_user2.weight, stats_user2.remainingBalance) = staker
-            .linenStats(user2);
-
-        vm.assertEq(stats_user1.weight, 0);
-        vm.assertEq(stats_user2.weight, 0);
-
-        vm.prank(user1);
-        staker.stake(50 * stake_units, 4);
-
-        vm.prank(user2);
-        staker.stake(100 * stake_units, 2);
-
-        (, , stats_user1.weight, stats_user1.remainingBalance) = staker
-            .linenStats(user1);
-
-        (, , stats_user2.weight, stats_user2.remainingBalance) = staker
-            .linenStats(user2);
-        // vm.assertEq(stats_user1.weight, 0);
-        vm.assertEq(stats_user1.weight, stats_user2.weight);
-    }
-
-    function test_linen_scaling() public {
-        flax.mint(100_000 ether, user1);
-        flax.mint(100_000 ether, user2);
-        LinenStats memory stats_user1;
-        (, stats_user1.linen, , ) = staker.linenStats(user1);
-
-        LinenStats memory stats_user2;
-        (, stats_user2.linen, , ) = staker.linenStats(user2);
-
-        vm.assertEq(stats_user1.linen, 0);
-        vm.assertEq(stats_user2.linen, 0);
-
-        uint stake_units = 1e21;
-
-        /* 
-        Below there are two users, one who stakes a small amount for long, and one who stakes a large amount for short. 
-        The resultant weight is the same. The weight is a coefficient. In other words, it boosts the amount of linen per staked flax.
-        Since they both get the same linen per flax per second, after a given amount of time, the one with the bigger stake 
-        should have twice as much linen as the one with the smaller.
-        */
-
-        uint MONTH = 30 * 24 * 60 * 60;
-        vm.prank(user1);
-        staker.stake(50 * stake_units, 4);
-
-        vm.prank(user2);
-        staker.stake(100 * stake_units, 2);
-
-        (stats_user1.lastUpdatedTimeStamp, stats_user1.linen, , ) = staker
-            .linenStats(user1);
-
-        (stats_user2.lastUpdatedTimeStamp, stats_user2.linen, , ) = staker
-            .linenStats(user2);
-
-        vm.assertEq(
-            stats_user1.lastUpdatedTimeStamp,
-            stats_user2.lastUpdatedTimeStamp
-        );
-
-        uint initialBlock = block.number;
-        vm.warp(vm.getBlockTimestamp() + MONTH);
-        vm.roll(initialBlock + 1);
-
-        staker.updateLinenBalance(user1);
-        staker.updateLinenBalance(user2);
-
-        (
-            stats_user1.lastUpdatedTimeStamp,
-            stats_user1.linen,
-            stats_user1.weight,
-
-        ) = staker.linenStats(user1);
-
-        (
-            stats_user2.lastUpdatedTimeStamp,
-            stats_user2.linen,
-            stats_user2.weight,
-
-        ) = staker.linenStats(user2);
-
-        vm.assertEq(
-            stats_user1.lastUpdatedTimeStamp,
-            stats_user2.lastUpdatedTimeStamp
-        );
-
-        vm.assertEq(stats_user1.weight, stats_user2.weight);
-        vm.assertGt(stats_user1.linen, 0);
-
-        vm.assertEq(stats_user1.linen * 2, stats_user2.linen);
-    }
-
     function test_booster_gives_correct_boost_at_all_levels() public {
-        flax.mint(1000_000 ether, user1);
-        BoosterV1 booster = new BoosterV1(address(staker));
+        sFlax.mint(9 ether, user1);
+        BoosterV1 booster = new BoosterV1(address(sFlax));
         vm.assertEq(booster.BasisPoints(), 10_000);
 
-        uint lowerThreshold = booster.LOWER_THRESHOLD();
+        (uint boost, uint sFlaxBalanceToBurn) = booster.percentageBoost(
+            user1,
+            0
+        );
 
-        vm.prank(user1);
-        staker.stake(1000 ether, 12);
-        (, , uint weight, ) = staker.linenStats(user1);
+        vm.assertEq(boost, 0);
+        vm.assertEq(sFlaxBalanceToBurn, 0);
 
-        vm.assertLt(weight, lowerThreshold);
+        sFlax.mint(1 ether, user1);
 
-        uint expectedBoosterPercentage = booster.BasisPoints();
+        (boost, sFlaxBalanceToBurn) = booster.percentageBoost(user1, 0);
+        vm.assertEq(boost, 1);
+        vm.assertEq(sFlaxBalanceToBurn, 10 ether);
 
-        uint boost = booster.percentageBoost(user1, 0); // second parameter isn't used by this booster
-        vm.assertEq(boost, expectedBoosterPercentage);
-        vm.prank(user1);
-        staker.stake(1000 ether, 48);
+        sFlax.mint(10 ether, user1);
 
-        (, , weight, ) = staker.linenStats(user1);
+        (boost, sFlaxBalanceToBurn) = booster.percentageBoost(user1, 0);
+        vm.assertEq(boost, 2);
+        vm.assertEq(sFlaxBalanceToBurn, 20 ether);
 
-        //assert next level up
-        vm.assertGt(weight, lowerThreshold);
-        vm.assertLt(weight, lowerThreshold * 10);
+        sFlax.mint(180 ether, user1);
 
-        boost = booster.percentageBoost(user1, 0); // second parameter isn't used by this booster
+        (boost, sFlaxBalanceToBurn) = booster.percentageBoost(user1, 0);
+        vm.assertEq(boost, 20);
+        vm.assertEq(sFlaxBalanceToBurn, 200 ether);
 
-        expectedBoosterPercentage =
-            booster.BasisPoints() +
-            (((weight - lowerThreshold) * booster.BasisPoints()) /
-                lowerThreshold);
+        sFlax.mint(400 ether, user1);
 
-        vm.assertEq(boost, expectedBoosterPercentage);
-        vm.assertLt(boost, booster.BasisPoints() * 2);
+        (boost, sFlaxBalanceToBurn) = booster.percentageBoost(user1, 0);
+        vm.assertEq(boost, 60);
+        vm.assertEq(sFlaxBalanceToBurn, 600 ether);
 
-        uint stakeAmount = 10_000 ether;
-        uint baseBoostMultiplier = 2;
-        for (
-            uint currentLowerThreshold = lowerThreshold * 10;
-            currentLowerThreshold < booster.HIGHER_THERSHOLD();
-            currentLowerThreshold *= 10
-        ) {
-            uint currentUpperThreshold = currentLowerThreshold * 10;
+        sFlax.mint(19400 ether, user1);
 
-            vm.prank(user1);
-            staker.stake(stakeAmount, 48);
-            stakeAmount *= 10;
-            (, , weight, ) = staker.linenStats(user1);
+        (boost, sFlaxBalanceToBurn) = booster.percentageBoost(user1, 0);
+        vm.assertEq(boost, 2000);
+        vm.assertEq(sFlaxBalanceToBurn, 20000 ether);
 
-            vm.assertGt(weight, currentLowerThreshold);
-            vm.assertLt(weight, currentUpperThreshold);
+        sFlax.mint(180_000 ether, user1);
 
-            expectedBoosterPercentage =
-                (baseBoostMultiplier * booster.BasisPoints()) +
-                (((weight - currentLowerThreshold) * booster.BasisPoints()) /
-                    currentLowerThreshold);
-            boost = booster.percentageBoost(user1, 0); // second parameter isn't used by this booster
+        (boost, sFlaxBalanceToBurn) = booster.percentageBoost(user1, 0);
+        vm.assertEq(boost, 20_000);
+        vm.assertEq(sFlaxBalanceToBurn, 200_000 ether);
 
-            baseBoostMultiplier++;
-            vm.assertEq(boost, expectedBoosterPercentage);
-            vm.assertLt(boost, booster.BasisPoints() * baseBoostMultiplier);
-        }
+        sFlax.mint(500_000 ether, user1);
+
+        //assert max out
+        (boost, sFlaxBalanceToBurn) = booster.percentageBoost(user1, 0);
+        vm.assertEq(boost, 20_000);
+        vm.assertEq(sFlaxBalanceToBurn, 200_000 ether);
     }
 
     function envWithDefault(

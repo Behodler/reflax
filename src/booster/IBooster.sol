@@ -5,11 +5,9 @@ interface IBooster {
     function percentageBoost(
         address claimant,
         uint baseFlax
-    ) external view returns (uint percentageBoost);
+    ) external view returns (uint percentageBoost, uint sFlaxBalance);
 
     function BasisPoints() external view returns (uint basisPoints);
 
-    function updateWeight(address depositor) external;
-
-    //TODO: write a function that is called on vault stake that updates weight downards
+    function burnSFlax(address claimant, uint amount) external ;
 }

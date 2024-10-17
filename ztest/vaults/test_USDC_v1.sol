@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.20;
 
-import {Test} from "@forge-std/Test.sol";
+import {Test} from "@forge-reflax/Test.sol";
 import {AVault} from "@reflax/vaults/AVault.sol";
 import {IERC20, ERC20} from "@oz_reflax/contracts/token/ERC20/ERC20.sol";
 import {AConvexBooster} from "../../src/yieldSources/convex/USDe_USDx_ys.sol";
@@ -12,7 +12,8 @@ import {AYieldSource} from "src/yieldSources/AYieldSource.sol";
 import {LocalUniswap} from "@test/mocks/LocalUniswap.sol";
 import {BoosterV1} from "@reflax/booster/BoosterV1.sol";
 import {IBooster} from "@reflax/booster/IBooster.sol";
-import {MockCoreStaker} from "@test/mocks/MockCoreStaker.sol";
+import {ISFlax} from "@sflax/contracts/SFlax.sol";
+
 import {UtilLibrary} from "src/UtilLibrary.sol";
 import {StandardOracle} from "@reflax/oracle/StandardOracle.sol";
 import {PriceTilter} from "@reflax/priceTilter/PriceTilter.sol";
@@ -22,6 +23,7 @@ import {IWETH} from "@uniswap_reflax/periphery/interfaces/IWETH.sol";
 import "src/Errors.sol";
 import {Ownable} from "@oz_reflax/contracts/access/Ownable.sol";
 import {ArbitrumConstants} from "../ArbitrumConstants.sol";
+import {SFlax} from "@sflax/contracts/SFlax.sol";
 
 contract Test_Token is ERC20 {
     uint unitSize;
@@ -54,13 +56,13 @@ contract test_USDC_v1 is Test {
     IERC20 USDe;
     IERC20 USDx;
     Test_Token Flax;
+    SFlax sFlax;
     IERC20 CRV;
     //fork arbitrum
 
     USDC_v1 vault;
     LocalUniswap uniswapMaker;
     USDe_USDx_ys yieldSource;
-    MockCoreStaker staker;
     BoosterV1 boosterV1;
     StandardOracle oracle;
     PriceTilter priceTilter;
@@ -93,11 +95,14 @@ contract test_USDC_v1 is Test {
         USDe = IERC20(constants.USDe());
         USDx = IERC20(constants.USDx());
         Flax = new Test_Token("Flax", ONE);
+        sFlax = new SFlax();
+
         CRV = IERC20(constants.CRV());
         addContractName("USDC", address(USDC));
         addContractName("USDe", address(USDe));
         addContractName("USDx", address(USDx));
         addContractName("Flax", address(Flax));
+        addContractName("SFlax", address(sFlax));
 
         if (upTo <= 2) return;
         uniswapMaker = new LocalUniswap(constants.sushiV2RouterO2_address());
@@ -231,17 +236,17 @@ contract test_USDC_v1 is Test {
 
         if (upTo <= 53) return;
 
-        staker = new MockCoreStaker();
-        addContractName("mock staker", address(staker));
+        addContractName("mock sFlax", address(sFlax));
         if (upTo <= 55) return;
-        boosterV1 = new BoosterV1(address(staker));
-
+        boosterV1 = new BoosterV1(address(sFlax));
+        sFlax.setApprovedBurner(address(boosterV1), true);
         addContractName("boosterV1", address(boosterV1));
         if (upTo <= 60) return;
 
         emit setupBooster(address(boosterV1));
         vault.setConfig(
             vm.toString(address(Flax)),
+            vm.toString(address(sFlax)),
             vm.toString(address(yieldSource)),
             vm.toString(address(boosterV1))
         );
@@ -367,47 +372,93 @@ contract test_USDC_v1 is Test {
     //     /*-----------setConfig----------------------*/
 
     function testSetConfig() public {
+        uint upTo = envWithDefault("DebugUpTo", type(uint).max);
+
         address newAddress = address(
             0x95222290DD7278Aa3Ddd389Cc1E1d165CC4BAfe5
         );
         (
             ,
             IERC20 flx_before,
+            ISFlax sFlax_before,
             AYieldSource yield_before,
             IBooster booster_before
         ) = vault.config();
 
-        vault.setConfig("0x95222290DD7278Aa3Ddd389Cc1E1d165CC4BAfe5", "", "");
+        vault.setConfig(
+            "0x95222290DD7278Aa3Ddd389Cc1E1d165CC4BAfe5",
+            "",
+            "",
+            ""
+        );
         (
             ,
             IERC20 flx_after,
+            ISFlax sFlax_after,
             AYieldSource yield_after,
             IBooster booster_after
         ) = vault.config();
 
         vm.assertEq(address(flx_after), newAddress);
+        vm.assertEq(address(sFlax_after), address(sFlax_before));
         vm.assertEq(address(yield_before), address(yield_after));
         vm.assertEq(address(booster_before), address(booster_after));
+        require(upTo > 120000, "UpTo setConfig");
 
-        (, flx_before, yield_before, booster_before) = vault.config();
+        (, flx_before, sFlax_before, yield_before, booster_before) = vault
+            .config();
 
-        vault.setConfig("", "0x95222290DD7278Aa3Ddd389Cc1E1d165CC4BAfe5", "");
+        vault.setConfig(
+            "",
+            "",
+            "0x95222290DD7278Aa3Ddd389Cc1E1d165CC4BAfe5",
+            ""
+        );
 
-        (, flx_after, yield_after, booster_after) = vault.config();
+        (, flx_after, sFlax_after, yield_after, booster_after) = vault.config();
 
         vm.assertEq(address(flx_after), address(flx_before));
+        vm.assertEq(address(sFlax_after), address(sFlax_before));
         vm.assertEq(address(yield_after), newAddress);
         vm.assertEq(address(booster_before), address(booster_after));
 
-        (, flx_before, yield_before, booster_before) = vault.config();
+        require(upTo > 121000, "UpTo setConfig");
 
-        vault.setConfig("", "", "0x95222290DD7278Aa3Ddd389Cc1E1d165CC4BAfe5");
+        (, flx_before, sFlax_before, yield_before, booster_before) = vault
+            .config();
 
-        (, flx_after, yield_after, booster_after) = vault.config();
+        vault.setConfig(
+            "",
+            "",
+            "",
+            "0x95222290DD7278Aa3Ddd389Cc1E1d165CC4BAfe5"
+        );
+
+        (, flx_after, sFlax_after, yield_after, booster_after) = vault.config();
 
         vm.assertEq(address(flx_after), address(flx_before));
+        vm.assertEq(address(sFlax_after), address(sFlax_before));
         vm.assertEq(address(yield_after), address(yield_before));
         vm.assertEq(newAddress, address(booster_after));
+
+        require(upTo > 122000, "UpTo setConfig");
+        (, flx_before, sFlax_before, yield_before, booster_before) = vault
+            .config();
+
+        vault.setConfig(
+            "",
+            "0x95222290DD7278Aa3Ddd389Cc1E1d165CC4BAfe5",
+            "",
+            ""
+        );
+        (, flx_after, sFlax_after, yield_after, booster_after) = vault.config();
+
+        vm.assertEq(address(flx_after), address(flx_before));
+        vm.assertEq(address(sFlax_after), newAddress);
+        vm.assertEq(address(yield_after), address(yield_before));
+        vm.assertEq(address(booster_before), address(booster_after));
+
+        require(upTo > 123000, "UpTo setConfig");
     }
 
     //     /*-----------------migrateYieldSouce----------------------*/
@@ -438,6 +489,7 @@ contract test_USDC_v1 is Test {
         yieldSource2.approvals();
         vault.setConfig(
             UtilLibrary.toAsciiString(address(Flax)),
+            UtilLibrary.toAsciiString(address(sFlax)),
             UtilLibrary.toAsciiString(address(yieldSource2)),
             UtilLibrary.toAsciiString(address(boosterV1))
         );
@@ -457,12 +509,15 @@ contract test_USDC_v1 is Test {
         (
             IERC20 _inputToken,
             IERC20 _flax,
+            ISFlax _sFlax,
             AYieldSource _yieldSource,
             IBooster _booster
         ) = vault.config();
 
         vm.assertEq(address(_inputToken), address(USDC));
         vm.assertEq(address(_flax), address(Flax));
+        vm.assertEq(address(_sFlax), address(sFlax));
+
         vm.assertEq(address(_yieldSource), address(yieldSource2));
         vm.assertEq(address(_booster), address(boosterV1));
     }

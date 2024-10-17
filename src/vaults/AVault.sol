@@ -6,12 +6,14 @@ import {IERC20} from "@oz_reflax/contracts/token/ERC20/ERC20.sol";
 import {PriceTilter} from "@reflax/priceTilter/PriceTilter.sol";
 import {AYieldSource} from "@reflax/yieldSources/AYieldSource.sol";
 import {IBooster} from "@reflax/booster/IBooster.sol";
+import {ISFlax} from "@sflax/contracts/SFlax.sol";
 import "../Errors.sol";
 import {UtilLibrary} from "../UtilLibrary.sol";
 
 struct Config {
     IERC20 inputToken;
     IERC20 flax;
+    ISFlax sFlax;
     AYieldSource yieldSource;
     IBooster booster;
 }
@@ -43,10 +45,9 @@ abstract contract AVault is Ownable, ReentrancyGuard {
         IERC20(token).transfer(msg.sender, balance);
     }
 
-    event boosterAddressEvent(address booster);
-
     function setConfig(
         string memory flaxAddress,
+        string memory sFlaxAddress,
         string memory yieldAddress,
         string memory boosterAddress
     ) public onlyOwner {
@@ -61,9 +62,13 @@ abstract contract AVault is Ownable, ReentrancyGuard {
         }
 
         if (!UtilLibrary.isEmptyString(boosterAddress)) {
-            address boo = UtilLibrary.stringToAddress(boosterAddress);
-            emit boosterAddressEvent(boo);
-            config.booster = IBooster(boo);
+            config.booster = IBooster(
+                UtilLibrary.stringToAddress(boosterAddress)
+            );
+        }
+
+        if (!UtilLibrary.isEmptyString(sFlaxAddress)) {
+            config.sFlax = ISFlax(UtilLibrary.stringToAddress(sFlaxAddress));
         }
     }
 
@@ -112,7 +117,6 @@ abstract contract AVault is Ownable, ReentrancyGuard {
         accounting.sharesBalance[staker] += amount;
         accounting.totalShares += amount;
         config.yieldSource.deposit(amount, staker);
-        config.booster.updateWeight(staker);
     }
 
     function _withdraw(
@@ -143,12 +147,16 @@ abstract contract AVault is Ownable, ReentrancyGuard {
         accounting.unclaimedFlax[caller] = 0;
 
         require(address(config.booster) != address(0), "booster not set");
-        uint flaxToTransfer = (config.booster.percentageBoost(
-            caller,
-            unclaimedFlax
-        ) * unclaimedFlax) / config.booster.BasisPoints();
+        (uint flaxToTransfer, uint sFlaxBalance) = config
+            .booster
+            .percentageBoost(caller, unclaimedFlax);
+
+        flaxToTransfer =
+            (flaxToTransfer * unclaimedFlax) /
+            config.booster.BasisPoints();
         config.flax.transfer(recipient, flaxToTransfer);
-        config.booster.updateWeight(caller);
+
+        config.booster.burnSFlax(caller, sFlaxBalance);
     }
 
     /// implement this to create non linear returns. returning parameter makes it linear.
