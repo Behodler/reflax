@@ -16,7 +16,7 @@ contract Flax is ERC20 {
     }
 }
 
-contract testCoreStaker_and_BoosterV1 is Test {
+contract testBoosterV1 is Test {
     Flax flax;
     Flax sFlax;
     address user1 = address(0x1);
