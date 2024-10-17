@@ -12,9 +12,11 @@ contract ArbitrumConstants {
         address(0xF403C135812408BFbE8713b5A23a04b3D48AAE31);
     address payable public constant sushiV2RouterO2_address =
         payable(address(0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506));
+    address payable public constant uniswapV2Router02_address =
+        payable(address(0x4752ba5DBc23f44D87826276BF6Fd6b1C372aD24));
+
     uint public constant convexPoolId = 34;
-
-
+    
     address public constant USDC =
         address(0xaf88d065e77c8cC2239327C5EDb3A432268e5831);
     address public constant USDe =
@@ -26,5 +28,5 @@ contract ArbitrumConstants {
     address public constant USDC_whale =
         address(0x2Df1c51E09aECF9cacB7bc98cB1742757f163dF7);
     address public constant USDe_whale =
-    address(0xA4ffe78ba40B7Ec0C348fFE36a8dE4F9d6198d2d);
+        address(0xA4ffe78ba40B7Ec0C348fFE36a8dE4F9d6198d2d);
 }

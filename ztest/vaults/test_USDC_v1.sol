@@ -61,6 +61,7 @@ contract test_USDC_v1 is Test {
     //fork arbitrum
 
     USDC_v1 vault;
+    LocalUniswap sushiSwapMaker;
     LocalUniswap uniswapMaker;
     USDe_USDx_ys yieldSource;
     BoosterV1 boosterV1;
@@ -105,9 +106,14 @@ contract test_USDC_v1 is Test {
         addContractName("SFlax", address(sFlax));
 
         if (upTo <= 2) return;
-        uniswapMaker = new LocalUniswap(constants.sushiV2RouterO2_address());
-        (address uniRouter, address uniFactory, address uniWeth) = uniswapMaker
-            .getAddresses();
+        sushiSwapMaker = new LocalUniswap(constants.sushiV2RouterO2_address());
+        uniswapMaker = new LocalUniswap(constants.uniswapV2Router02_address());
+
+        (
+            address uniRouter,
+            address uniFactory,
+            address uniWeth
+        ) = sushiSwapMaker.getAddresses();
         addContractName("uniRouter", address(uniRouter));
         addContractName("uniFactory", address(uniFactory));
         addContractName("uniWeth", address(uniWeth));
@@ -159,13 +165,12 @@ contract test_USDC_v1 is Test {
 
         USDC.approve(address(vault), type(uint).max);
         if (upTo <= 7) return;
-        (address router, address factory, address weth) = uniswapMaker
-            .getAddresses();
+
         if (upTo <= 8) return;
 
         yieldSource = new USDe_USDx_ys(
             address(USDC),
-            router,
+            address(sushiSwapMaker.router()),
             constants.convexPoolId()
         );
         addContractName("yieldSource", address(yieldSource));
@@ -184,16 +189,19 @@ contract test_USDC_v1 is Test {
         vm.assertEq(testFlaxConversion, address(Flax));
         //price tilter
         if (upTo <= 15) return;
-        oracle = new StandardOracle(factory);
+        oracle = new StandardOracle(address(uniswapMaker.factory()));
         addContractName("oracle", address(oracle));
         if (upTo <= 20) return;
-        vm.assertNotEq(weth, address(0));
+        vm.assertNotEq(address(uniswapMaker.WETH()), address(0));
 
-        uniswapMaker.factory().createPair(address(Flax), weth);
+        uniswapMaker.factory().createPair(
+            address(Flax),
+            address(uniswapMaker.WETH())
+        );
         if (upTo <= 21) return;
         address referencePairAddress = uniswapMaker.factory().getPair(
             address(Flax),
-            weth
+            address(uniswapMaker.WETH())
         );
         addContractName("refPair(FLX/Weth)", referencePairAddress);
         if (upTo <= 22) return;
@@ -207,9 +215,9 @@ contract test_USDC_v1 is Test {
 
         //create reward pair
         // uniswapMaker.factory().createPair(address(CRV), weth);
-        address rewardPairAddress = uniswapMaker.factory().getPair(
+        address rewardPairAddress = sushiSwapMaker.factory().getPair(
             address(CRV),
-            weth
+            address(sushiSwapMaker.WETH())
         );
         addContractName("rewardPairAddress(Crv/Weth)", rewardPairAddress);
         //end create reward pair
@@ -219,7 +227,11 @@ contract test_USDC_v1 is Test {
         if (upTo <= 30) return;
         priceTilter = new PriceTilter();
         priceTilter.setOracle(address(oracle));
-        priceTilter.setTokens(weth, address(Flax), factory);
+        priceTilter.setTokens(
+            address(uniswapMaker.WETH()),
+            address(Flax),
+            address(uniswapMaker.factory())
+        );
 
         Flax.mintUnits(100_000_000, address(priceTilter));
         if (upTo <= 40) return;
@@ -336,8 +348,9 @@ contract test_USDC_v1 is Test {
 
         uint flaxBalanceOnVault_before = Flax.balanceOf(address(vault));
         uint flaxPriceBefore = wethToFlaxRatio();
+        require(upTo > 101000, "up to");
         vault.claim(user1);
-
+        require(upTo > 104000, "up to");
         uint flaxBalanceOnVault_after = Flax.balanceOf(address(vault));
 
         uint flaxPriceAfter = wethToFlaxRatio();
@@ -474,7 +487,7 @@ contract test_USDC_v1 is Test {
 
         USDe_USDx_ys yieldSource2 = new USDe_USDx_ys(
             address(USDC),
-            address(uniswapMaker.router()),
+            address(sushiSwapMaker.router()),
             constants.convexPoolId()
         );
         yieldSource2.setConvex(address(convexBooster));
@@ -652,7 +665,7 @@ contract test_USDC_v1 is Test {
         IUniswapV2Pair referencePair = IUniswapV2Pair(
             uniswapMaker.factory().getPair(
                 address(Flax),
-                address(uniswapMaker.WETH())
+                address(sushiSwapMaker.WETH())
             )
         );
 

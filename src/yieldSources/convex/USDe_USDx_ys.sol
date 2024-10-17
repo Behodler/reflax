@@ -11,7 +11,7 @@ import "src/Errors.sol";
 import {UniswapV2Library} from "@uniswap_reflax/periphery/libraries/UniswapV2Library.sol";
 
 //used for selling CRV rewards
-struct SushiswapConfig {
+struct UniswapConfig {
     UniswapV2Router02 router;
     IUniswapV2Factory factory;
     IWETH weth;
@@ -135,7 +135,8 @@ struct Convex {
 //contract USDe+USDx
 //https://arbiscan.io/token/0xe062e302091f44d7483d9d6e0da9881a0817e2be#writeContract
 contract USDe_USDx_ys is AYieldSource {
-    SushiswapConfig sushiswap;
+    UniswapConfig sushiswap;//for selling curve
+
     CRV crvPools;
     Convex convex;
 
@@ -300,6 +301,7 @@ contract USDe_USDx_ys is AYieldSource {
 
     //End hooks
 
+
     function setCRV(address crv) public onlyOwner {
         address[] memory set = new address[](1);
         set[0] = crv;
@@ -324,6 +326,8 @@ contract USDe_USDx_ys is AYieldSource {
             if (rewardBalance < 100_000) {
                 continue;
             }
+
+
             address ethRewardPairAddress = sushiswap.factory.getPair(
                 rewardToken,
                 referenceToken
