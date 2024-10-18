@@ -58,7 +58,7 @@ touch addresses.txt && rm addresses.txt && forge script --ffi --rpc-url=http://l
 # forge script ./UpdateOracles.s.sol --tc UpdateOracles --broadcast --rpc-url=http://localhost:8545 --json --private-key 0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d
 
 # # Step 3: Run a Node.js script to read addresses.json and update Redis
-# echo "executing node script"
+echo "executing node script"
 # node updateRedis.js
-# # sleep 5
-# node expressServer
+# sleep 5
+node expressServer

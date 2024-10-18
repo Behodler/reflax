@@ -110,13 +110,13 @@ contract test_USDC_v1 is Test {
         uniswapMaker = new LocalUniswap(constants.uniswapV2Router02_address());
 
         (
-            address uniRouter,
-            address uniFactory,
-            address uniWeth
+            address sushiRouter,
+            address sushiFactory,
+            address sushiWeth
         ) = sushiSwapMaker.getAddresses();
-        addContractName("uniRouter", address(uniRouter));
-        addContractName("uniFactory", address(uniFactory));
-        addContractName("uniWeth", address(uniWeth));
+        addContractName("sushiRouter", address(sushiRouter));
+        addContractName("sushiFactory", address(sushiFactory));
+        addContractName("sushiWeth", address(sushiWeth));
 
         /*
             1. crv pool (USDe/USDx)
