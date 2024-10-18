@@ -79,10 +79,10 @@ contract test_USDC_v1 is Test {
         string[] memory inputs = new string[](4);
         inputs[
             0
-        ] = "/home/justin/code/BehodlerReborn/reflax/node_modules/.bin/ts-node"; // Command to invoke ts-node
-        inputs[1] = "ztest/address-name-mapper.ts"; // The TypeScript file
-        inputs[2] = name; // The contract name
-        inputs[3] = vm.toString(contractAddrress); // The contract address
+        ] = "./node_modules/.bin/ts-node"; // Command to invoke ts-node
+        inputs[1] = "ztest/address-name-mapper.ts"; 
+        inputs[2] = name; 
+        inputs[3] = vm.toString(contractAddrress); 
         vm.ffi(inputs);
     }
 
