@@ -9,7 +9,7 @@
   "scripts": {
     "anvil-up": "./script/anvilUpAndDeploy.sh ",
     "anvil-down": "./script/anvilDown.sh",
-    "wagmi-generate":"npx wagmi generate"
+    "wagmi-generate":"npx ts-node wagmi/generateSpec.ts && npx wagmi generate"
   },
   "keywords": [],
   "author": "",

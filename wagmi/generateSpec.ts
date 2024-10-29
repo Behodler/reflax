@@ -5,7 +5,9 @@ const contractsToGenerate: string[] =
         "AVault",
         "StandardOracle",
         "USDe_USDx_ys",
-        "USDC_v1"
+        "USDC_v1",
+        "SFlax",
+        "IsFlax"
     ];
 interface JSONFormat {
     abi: any[]
