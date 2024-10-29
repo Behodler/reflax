@@ -8,7 +8,8 @@
   },
   "scripts": {
     "anvil-up": "./script/anvilUpAndDeploy.sh ",
-    "anvil-down": "./script/anvilDown.sh"
+    "anvil-down": "./script/anvilDown.sh",
+    "wagmi-generate":"npx wagmi generate"
   },
   "keywords": [],
   "author": "",
@@ -19,5 +20,8 @@
     "express": "^4.21.1",
     "ts-node": "^10.9.2",
     "typescript": "^5.6.2"
+  },
+  "devDependencies": {
+    "@wagmi/cli": "^2.1.16"
   }
 }

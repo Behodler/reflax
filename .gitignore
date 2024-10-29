@@ -22,3 +22,4 @@ anvil.log
 script/AnvilID.txt
 script/addresses.json
 broadcast/
+wagmi/auto.ts

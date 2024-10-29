@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.20;
 
-import {AVault} from  "@reflax/vaults/AVault.sol";
+import {AVault} from "@reflax/vaults/AVault.sol";
+
 contract USDC_v1 is AVault {
     uint maxStake = 10_000 * 1e6; //$10000
 
-    constructor(address inputTokenAddress) AVault(inputTokenAddress) {
-    }
+    constructor(address inputTokenAddress) AVault(inputTokenAddress) {}
 
     function setMaxStake(uint max) public onlyOwner {
         maxStake = max;
@@ -46,25 +46,34 @@ contract USDC_v1 is AVault {
     }
 
     function uintToString(uint v) internal pure returns (string memory) {
-    if (v == 0) {
-        return "0";
+        if (v == 0) {
+            return "0";
+        }
+        uint maxlength = 78;
+        bytes memory reversed = new bytes(maxlength);
+        uint i = 0;
+        while (v != 0) {
+            uint remainder = v % 10;
+            v = v / 10;
+            reversed[i++] = bytes1(uint8(48 + remainder));
+        }
+        bytes memory s = new bytes(i);
+        for (uint j = 0; j < i; j++) {
+            s[j] = reversed[i - j - 1];
+        }
+        return string(s);
     }
-    uint maxlength = 78;
-    bytes memory reversed = new bytes(maxlength);
-    uint i = 0;
-    while (v != 0) {
-        uint remainder = v % 10;
-        v = v / 10;
-        reversed[i++] = bytes1(uint8(48 + remainder));
-    }
-    bytes memory s = new bytes(i);
-    for (uint j = 0; j < i; j++) {
-        s[j] = reversed[i - j - 1];
-    }
-    return string(s);
-}
 
-function getMaxStakeError(uint _maxStake) internal pure returns (string memory) {
-    return string(abi.encodePacked("Vault capped at ", uintToString(_maxStake/1000_000), " USDC"));
-}
+    function getMaxStakeError(
+        uint _maxStake
+    ) internal pure returns (string memory) {
+        return
+            string(
+                abi.encodePacked(
+                    "Vault capped at ",
+                    uintToString(_maxStake / 1000_000),
+                    " USDC"
+                )
+            );
+    }
 }
