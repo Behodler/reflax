@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
+
 import {IUniswapV2Factory} from "@uniswap_reflax/core/interfaces/IUniswapV2Factory.sol";
+
+import {IUniswapV2Router02} from "@uniswap_reflax/periphery/interfaces/IUniswapV2Router02.sol";
 import {IUniswapV2Pair} from "@uniswap_reflax/core/interfaces/IUniswapV2Pair.sol";
 import {FixedPoint} from "@uniswap_reflax/periphery/lib/FixedPoint.sol";
 import {UniswapV2OracleLibrary} from "@uniswap_reflax/periphery/libraries/UniswapV2OracleLibrary.sol";
@@ -14,6 +17,8 @@ contract StandardOracle is IOracle, Ownable {
     using FixedPoint for FixedPoint.uq112x112;
 
     IUniswapV2Factory public factory;
+    address public WETH;
+
     struct PairMeasurement {
         uint256 price0CumulativeLast;
         uint256 price1CumulativeLast;
@@ -25,10 +30,7 @@ contract StandardOracle is IOracle, Ownable {
 
     mapping(address => PairMeasurement) public pairMeasurements;
 
-    function getLastUpdate(
-        address token0,
-        address token1
-    ) public view returns (uint32, uint256) {
+    function getLastUpdate(address token0, address token1) public view returns (uint32, uint256) {
         address pair = factory.getPair(token0, token1);
         PairMeasurement memory measurement = pairMeasurements[pair];
         return (measurement.blockTimestampLast, measurement.period);
@@ -41,18 +43,17 @@ contract StandardOracle is IOracle, Ownable {
         _;
     }
 
-    constructor(address V2factory) Ownable(msg.sender) {
-        factory = IUniswapV2Factory(V2factory);
+    constructor(address V2Router, uint256 deleteThisButDrawAttentionToParameterChangeSS) Ownable(msg.sender) {
+        IUniswapV2Router02 router = IUniswapV2Router02(V2Router);
+        WETH = router.WETH();
+        factory = IUniswapV2Factory(router.factory());
     }
 
     /**
-     *@param pairAddress the UniswapV2 pair address
-     *@param period the minimum duration in hours between sampling
+     * @param pairAddress the UniswapV2 pair address
+     * @param period the minimum duration in hours between sampling
      */
-    function RegisterPair(
-        address pairAddress,
-        uint256 period
-    ) public onlyOwner {
+    function RegisterPair(address pairAddress, uint256 period) public onlyOwner {
         IUniswapV2Pair pair = IUniswapV2Pair(pairAddress);
         uint256 price0CumulativeLast = pair.price0CumulativeLast(); // fetch the current accumulated price value (1 / 0)
         uint256 price1CumulativeLast = pair.price1CumulativeLast(); // fetch the current accumulated price value (0 / 1)
@@ -74,13 +75,13 @@ contract StandardOracle is IOracle, Ownable {
     }
 
     /**
-     *@dev the order of tokens determins the consulting
+     * @dev the order of tokens determins the consulting
      */
-    function update(
-        address token0,
-        address token1,
-        uint consult_amount
-    ) public validPair(token0, token1) returns (uint consultResult) {
+    function update(address token0, address token1, uint256 consult_amount)
+        public
+        validPair(token0, token1)
+        returns (uint256 consultResult)
+    {
         address pair = factory.getPair(token0, token1);
         _update(pair, true);
         if (consult_amount > 0) {
@@ -88,11 +89,14 @@ contract StandardOracle is IOracle, Ownable {
         }
     }
 
-    function hintUpdate(
-        address token0,
-        address token1,
-        uint consult_amount
-    ) public validPair(token0, token1) returns (uint consultResult) {
+    function hintUpdate(address token0, address token1, uint256 consult_amount)
+        public
+        validPair(token0, token1)
+        returns (uint256 consultResult)
+    {
+        if (token1 == address(0)) {
+            token1 = WETH;
+        }
         address pair = factory.getPair(token0, token1);
         _update(pair, false);
         if (consult_amount > 0) {
@@ -101,25 +105,25 @@ contract StandardOracle is IOracle, Ownable {
     }
 
     /**
-     *@param pair the UniswapV2 pair with no consulting overhead
+     * @param pair the UniswapV2 pair with no consulting overhead
      */
     function updatePair(address pair) public {
         _update(pair, true);
     }
 
     /**
-     *@param tokenIn the token for which the price is required
-     *@param tokenOut the token that the priced token is being priced in.
-     *@param amountIn the quantity of pricedToken to allow for price impact
+     * @param tokenIn the token for which the price is required
+     * @param tokenOut the token that the priced token is being priced in.
+     * @param amountIn the quantity of pricedToken to allow for price impact
      */
-    function consult(
-        address tokenIn,
-        address tokenOut,
-        uint256 amountIn
-    ) public view validPair(tokenIn, tokenOut) returns (uint256 amountOut) {
-        IUniswapV2Pair pair = IUniswapV2Pair(
-            factory.getPair(tokenIn, tokenOut)
-        );
+    function consult(address tokenIn, address tokenOut, uint256 amountIn)
+        public
+        view
+        validPair(tokenIn, tokenOut)
+        returns (uint256 amountOut)
+    {
+        tokenOut = tokenOut == address(0) ? WETH : tokenOut;
+        IUniswapV2Pair pair = IUniswapV2Pair(factory.getPair(tokenIn, tokenOut));
         PairMeasurement memory measurement = pairMeasurements[address(pair)];
 
         if (tokenIn == pair.token0()) {
@@ -137,11 +141,8 @@ contract StandardOracle is IOracle, Ownable {
     }
 
     function _update(address _pair, bool throwIfTooSoon) private {
-        (
-            uint256 price0Cumulative,
-            uint256 price1Cumulative,
-            uint32 blockTimestamp
-        ) = UniswapV2OracleLibrary.currentCumulativePrices(_pair);
+        (uint256 price0Cumulative, uint256 price1Cumulative, uint32 blockTimestamp) =
+            UniswapV2OracleLibrary.currentCumulativePrices(_pair);
         PairMeasurement memory measurement = pairMeasurements[_pair];
 
         if (measurement.period == 0) {
@@ -155,24 +156,18 @@ contract StandardOracle is IOracle, Ownable {
 
         // ensure that at least one full period has passed since the last update
         if (timeElapsed < measurement.period) {
-            if (throwIfTooSoon)
+            if (throwIfTooSoon) {
                 revert WaitPeriodTooSmall(timeElapsed, measurement.period);
-            else return;
+            } else {
+                return;
+            }
         }
 
-        measurement.price0Average = FixedPoint.uq112x112(
-            uint224(
-                (price0Cumulative - measurement.price0CumulativeLast) /
-                    timeElapsed
-            )
-        );
+        measurement.price0Average =
+            FixedPoint.uq112x112(uint224((price0Cumulative - measurement.price0CumulativeLast) / timeElapsed));
 
-        measurement.price1Average = FixedPoint.uq112x112(
-            uint224(
-                (price1Cumulative - measurement.price1CumulativeLast) /
-                    timeElapsed
-            )
-        );
+        measurement.price1Average =
+            FixedPoint.uq112x112(uint224((price1Cumulative - measurement.price1CumulativeLast) / timeElapsed));
 
         measurement.price0CumulativeLast = price0Cumulative;
         measurement.price1CumulativeLast = price1Cumulative;
@@ -180,19 +175,11 @@ contract StandardOracle is IOracle, Ownable {
         pairMeasurements[_pair] = measurement;
     }
 
-    function isPair(
-        address tokenA,
-        address tokenB
-    ) private view returns (bool) {
+    function isPair(address tokenA, address tokenB) private view returns (bool) {
         return factory.getPair(tokenA, tokenB) != address(0);
     }
 
-    function uniSort(
-        address tokenA,
-        address tokenB
-    ) external pure returns (address token0, address token1) {
-        (token0, token1) = tokenA < tokenB
-            ? (tokenA, tokenB)
-            : (tokenB, tokenA);
+    function uniSort(address tokenA, address tokenB) external pure returns (address token0, address token1) {
+        (token0, token1) = tokenA < tokenB ? (tokenA, tokenB) : (tokenB, tokenA);
     }
 }

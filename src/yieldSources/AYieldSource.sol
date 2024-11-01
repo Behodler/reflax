@@ -11,6 +11,9 @@ struct RewardToken {
 
 //maintain a list of reward tokens
 abstract contract AYieldSource is Ownable {
+    event flaxValueOfPriceTilt(uint tilt, uint reward);
+    event ReleaseInputValues(uint assetBalanceAfter, uint amount);
+
     uint constant ONE = 1 ether;
     bool open;
     //Note that inputToken is the user facing input token like eth etc.
@@ -102,10 +105,7 @@ abstract contract AYieldSource is Ownable {
 
     //end hooks
 
-    function deposit(
-        uint amount,
-        address staker
-    ) public approvedVault {
+    function deposit(uint amount, address staker) public approvedVault {
         if (!open) {
             revert FundClosed();
         }
@@ -116,7 +116,7 @@ abstract contract AYieldSource is Ownable {
 
     function advanceYield()
         public
-        returns (uint flaxValueOfTilt, uint currentDepositBalance)
+        returns ( uint currentDepositBalance)
     {
         /*
         1. Claim yield on underlying asset. 
@@ -129,11 +129,16 @@ abstract contract AYieldSource is Ownable {
         _handleClaim();
         address referenceToken = priceTilter.referenceToken();
         sellRewardsForReferenceToken_hook(referenceToken);
-        flaxValueOfTilt = priceTilter.tilt();
-        return (flaxValueOfTilt, get_input_value_of_protocol_deposit_hook());
+        (uint flax_value_of_tilt, uint flax_value_of_reward_claim) = priceTilter
+            .tilt();
+        emit flaxValueOfPriceTilt(
+            flax_value_of_tilt,
+            flax_value_of_reward_claim
+        );
+        return (
+            get_input_value_of_protocol_deposit_hook()
+        );
     }
-
-    event ReleaseInputValues(uint assetBalanceAfter, uint amount);
 
     function releaseInput(
         address recipient,
