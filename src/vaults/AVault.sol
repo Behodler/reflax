@@ -10,6 +10,7 @@ import {ISFlax} from "@sflax/contracts/SFlax.sol";
 import "../Errors.sol";
 import {UtilLibrary} from "../UtilLibrary.sol";
 import {StandardOracle} from "@reflax/oracle/StandardOracle.sol";
+import {BaseVaultLib, FarmAccounting} from "./BaseVaultLib.sol";
 
 struct Config {
     IERC20 inputToken;
@@ -20,15 +21,7 @@ struct Config {
     /* eg. If TVIPS===10000 then for every 0.00000001 USDC, you earn 1c per hour
     Although USDC only has 6 decimal places, the reward is paid in Flax which has 18. Hence the virtual*/
     uint256 teraVirtualInputPerSecond;
-    StandardOracle flaxPerUSDCOracle;
-}
-
-struct FarmAccounting {
-    mapping(address => uint256) sharesBalance;
-    mapping(address => uint256) unclaimedFlax; //aka rewardDebt in MasterChef
-    uint256 aggregateFlaxPerShare;
-    uint256 totalShares;
-    uint256 lastUpdate; //be careful of no tilting
+    StandardOracle oracle;
 }
 
 /**
@@ -78,7 +71,7 @@ abstract contract AVault is Ownable, ReentrancyGuard {
         }
 
         if (!UtilLibrary.isEmptyString(oracleAddress)) {
-            config.flaxPerUSDCOracle = StandardOracle(UtilLibrary.stringToAddress(oracleAddress));
+            config.oracle = StandardOracle(UtilLibrary.stringToAddress(oracleAddress));
         }
 
         if (TVIPS > 0) {
@@ -99,13 +92,16 @@ abstract contract AVault is Ownable, ReentrancyGuard {
     }
 
     modifier updateStakeAccounting(address caller) {
-        uint256 currentDepositBalance = config.yieldSource.advanceYield();
-
-        if (currentDepositBalance > 0) {
-            accounting.aggregateFlaxPerShare += calculate_derived_yield_increment();
-        }
-        accounting.unclaimedFlax[caller] = (accounting.sharesBalance[caller] * accounting.aggregateFlaxPerShare) / ONE;
+        config.yieldSource.advanceYield();
+        (accounting.aggregateFlaxPerShare, accounting.unclaimedFlax[caller]) = BaseVaultLib.updateStakeAccounting(
+            accounting.aggregateFlaxPerShare,
+            accounting.priorReward[caller],
+            accounting.sharesBalance[caller],
+            calculate_derived_yield_increment()
+        );
         _;
+        accounting.priorReward[caller] = accounting.aggregateFlaxPerShare;
+        accounting.unclaimedFlax[caller] = 0;
     }
 
     function _stake(uint256 amount, address staker)
@@ -137,11 +133,9 @@ abstract contract AVault is Ownable, ReentrancyGuard {
 
     function _claim(address caller, address recipient) private {
         uint256 unclaimedFlax = accounting.unclaimedFlax[caller];
-        accounting.unclaimedFlax[caller] = 0;
 
         require(address(config.booster) != address(0), "booster not set");
         (uint256 flaxToTransfer, uint256 sFlaxBalance) = config.booster.percentageBoost(caller, unclaimedFlax);
-
         flaxToTransfer = (flaxToTransfer * unclaimedFlax) / config.booster.BasisPoints();
         config.flax.transfer(recipient, flaxToTransfer);
 

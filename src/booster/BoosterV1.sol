@@ -3,6 +3,7 @@ pragma solidity ^0.8.20;
 
 import {IBooster} from "@reflax/booster/IBooster.sol";
 import {ISFlax} from "@sflax/contracts/SFlax.sol";
+import {BoosterV1_lib} from '@reflax/booster/BoosterV1_lib.sol';
 
 //For those concerned with the hardcoded numbers below, this contract can be swapped out. It just reflects current conditions at the time of coding.
 contract BoosterV1 is IBooster {
@@ -23,20 +24,7 @@ contract BoosterV1 is IBooster {
         uint baseFlax
     ) public view returns (uint boost, uint sFlaxBalanceToBurn) {
         sFlaxBalanceToBurn = sFlax.balanceOf(claimant);
-
-        boost = (sFlaxBalanceToBurn * BasisPoints()) / (100_000 ether);
-        if (boost == 0) {
-            //don't burn if no boost
-            sFlaxBalanceToBurn = 0;
-            
-        }
-
-        //max boost for security: 100%
-        if (boost > 2 * BasisPoints()) {
-            sFlaxBalanceToBurn = 200_000 ether;
-            boost = 2 * BasisPoints();
-        }
-        boost+=BasisPoints();
+        boost = BoosterV1_lib.percentageBoost(BasisPoints(),sFlaxBalanceToBurn);
     }
 
     function BasisPoints() public view returns (uint basisPoints) {

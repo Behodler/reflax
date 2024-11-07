@@ -26,8 +26,8 @@ import {SFlax} from "@sflax/contracts/SFlax.sol";
 import {Test_Token} from "ztest/vaults/test_USDC_v1.sol";
 
 contract DeployContracts is Script {
-    uint constant ONE_USDC = 1e6;
-    uint constant ONE = 1 ether;
+    uint256 constant ONE_USDC = 1e6;
+    uint256 constant ONE = 1 ether;
 
     IERC20 USDC;
     IERC20 USDe;
@@ -48,10 +48,7 @@ contract DeployContracts is Script {
     CRV_pool USDe_USDx_crv;
     ArbitrumConstants constants = new ArbitrumConstants();
 
-    function addContractName(
-        string memory name,
-        address contractAddrress
-    ) internal {
+    function addContractName(string memory name, address contractAddrress) internal {
         string[] memory inputs = new string[](4);
         inputs[0] = "./node_modules/.bin/ts-node"; // Command to invoke ts-node
         inputs[1] = "script/address-name-mapper.ts";
@@ -99,21 +96,21 @@ contract DeployContracts is Script {
         USDC_USDe_crv = CRV_pool(constants.USDC_USDe_address());
         addContractName("USDC_USDe_crv", constants.USDC_USDe_address());
 
-        uint USDC_whaleBalance = USDC.balanceOf(constants.USDC_whale());
+        uint256 USDC_whaleBalance = USDC.balanceOf(constants.USDC_whale());
 
         //"steal" USDC from whale to use in testing
         vm.prank(constants.USDC_whale());
         USDC.transfer(address(this), USDC_whaleBalance);
 
-        uint USDe_whaleBalance = USDe.balanceOf(constants.USDe_whale());
+        uint256 USDe_whaleBalance = USDe.balanceOf(constants.USDe_whale());
         vm.prank(constants.USDe_whale());
         USDe.transfer(address(this), USDe_whaleBalance);
 
-        USDC.approve(address(USDC_USDe_crv), type(uint).max);
+        USDC.approve(address(USDC_USDe_crv), type(uint256).max);
 
-        USDe.approve(address(USDe_USDx_crv), type(uint).max);
-        USDe.approve(address(USDC_USDe_crv), type(uint).max);
-        USDx.approve(address(USDe_USDx_crv), type(uint).max);
+        USDe.approve(address(USDe_USDx_crv), type(uint256).max);
+        USDe.approve(address(USDC_USDe_crv), type(uint256).max);
+        USDx.approve(address(USDe_USDx_crv), type(uint256).max);
         CVX_pool convexPool = CVX_pool(constants.convexPool_address());
         addContractName("convexPool", constants.convexPool_address());
         convexBooster = AConvexBooster(constants.convexBooster_address());
@@ -121,36 +118,24 @@ contract DeployContracts is Script {
         vault = new USDC_v1(address(USDC));
         addContractName("vault", address(vault));
 
-        USDC.approve(address(vault), type(uint).max);
+        USDC.approve(address(vault), type(uint256).max);
 
-        yieldSource = new USDe_USDx_ys(
-            address(USDC),
-            address(sushiSwapMaker.router()),
-            constants.convexPoolId()
-        );
+        yieldSource = new USDe_USDx_ys(address(USDC), address(sushiSwapMaker.router()), constants.convexPoolId());
         addContractName("yieldSource", address(yieldSource));
 
         yieldSource.setConvex(address(convexBooster));
-        USDC.approve(address(yieldSource), type(uint).max);
+        USDC.approve(address(yieldSource), type(uint256).max);
         // vm.assertEq(UtilLibrary.toAsciiString(address(Flax)), "");
 
-        address testFlaxConversion = UtilLibrary.stringToAddress(
-            UtilLibrary.toAsciiString(address(Flax))
-        );
+        address testFlaxConversion = UtilLibrary.stringToAddress(UtilLibrary.toAsciiString(address(Flax)));
         vm.assertEq(testFlaxConversion, address(Flax));
         //price tilter
         oracle = new StandardOracle(address(uniswapMaker.factory()));
         addContractName("oracle", address(oracle));
         vm.assertNotEq(address(uniswapMaker.WETH()), address(0));
 
-        uniswapMaker.factory().createPair(
-            address(Flax),
-            address(uniswapMaker.WETH())
-        );
-        address referencePairAddress = uniswapMaker.factory().getPair(
-            address(Flax),
-            address(uniswapMaker.WETH())
-        );
+        uniswapMaker.factory().createPair(address(Flax), address(uniswapMaker.WETH()));
+        address referencePairAddress = uniswapMaker.factory().getPair(address(Flax), address(uniswapMaker.WETH()));
         addContractName("refPair(FLX/Weth)", referencePairAddress);
         Flax.mintUnits(1000, referencePairAddress);
         vm.deal(address(this), 100 ether);
@@ -161,10 +146,7 @@ contract DeployContracts is Script {
 
         //create reward pair
         // uniswapMaker.factory().createPair(address(CRV), weth);
-        address rewardPairAddress = sushiSwapMaker.factory().getPair(
-            address(CRV_gov),
-            address(sushiSwapMaker.WETH())
-        );
+        address rewardPairAddress = sushiSwapMaker.factory().getPair(address(CRV_gov), address(sushiSwapMaker.WETH()));
         addContractName("rewardPairAddress(Crv/Weth)", rewardPairAddress);
         //end create reward pair
 
@@ -172,20 +154,12 @@ contract DeployContracts is Script {
 
         priceTilter = new PriceTilter();
         priceTilter.setOracle(address(oracle));
-        priceTilter.setTokens(
-            address(uniswapMaker.WETH()),
-            address(Flax),
-            address(uniswapMaker.factory())
-        );
+        priceTilter.setTokens(address(uniswapMaker.WETH()), address(Flax), address(uniswapMaker.factory()));
 
         Flax.mintUnits(100_000_000, address(priceTilter));
 
         yieldSource.setCRV(address(CRV_gov));
-        yieldSource.setCRVPools(
-            address(USDC_USDe_crv),
-            address(USDe_USDx_crv),
-            address(USDe)
-        );
+        yieldSource.setCRVPools(address(USDC_USDe_crv), address(USDe_USDx_crv), address(USDe));
 
         yieldSource.approvals();
 
@@ -198,16 +172,13 @@ contract DeployContracts is Script {
             vm.toString(address(Flax)),
             vm.toString(address(sFlax)),
             vm.toString(address(yieldSource)),
-            vm.toString(address(boosterV1))
+            vm.toString(address(boosterV1)),
+            3170,
+            vm.toString(address(oracle))
         );
 
         yieldSource.configure(
-            1,
-            vm.toString(address(USDC)),
-            vm.toString(address(priceTilter)),
-            "convex",
-            "",
-            vm.toString(address(vault))
+            1, vm.toString(address(USDC)), vm.toString(address(priceTilter)), "convex", "", vm.toString(address(vault))
         );
 
         Flax.mintUnits(1000_000_000, address(vault));

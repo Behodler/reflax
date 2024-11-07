@@ -150,9 +150,8 @@ abstract contract AYieldSource is Ownable {
         release_hook(protolUnitsToWithdraw, amount);
         uint assetBalanceAfter = IERC20(inputToken).balanceOf(address(this));
 
-        emit ReleaseInputValues(assetBalanceAfter, amount);
         require(
-            allowImpermanentLoss || assetBalanceAfter > amount,
+            allowImpermanentLoss || assetBalanceAfter >= amount,
             "Withdrawal halted: impermanent loss"
         );
 

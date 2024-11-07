@@ -2,6 +2,7 @@
 pragma solidity ^0.8.20;
 
 import {AVault} from "@reflax/vaults/AVault.sol";
+import {USDC_v1_lib} from "./USDC_v1_lib.sol";
 
 contract USDC_v1 is AVault {
     uint256 maxStake = 10_000 * 1e6; //$10000
@@ -24,21 +25,18 @@ contract USDC_v1 is AVault {
         _claimAndUpdate(recipient, msg.sender);
     }
 
-    //TODO: this should break tests
     function calculate_derived_yield_increment() internal override returns (uint256 flaxReward) {
-        uint256 TVIPS = config.teraVirtualInputPerSecond;
-        uint256 timeSinceLast = block.timestamp - accounting.lastUpdate;
-        uint256 teraUSDCPerShare = timeSinceLast * TVIPS;
-        uint256 ethPerUSDC = config.flaxPerUSDCOracle.hintUpdate(address(config.inputToken), address(0), 10_000_000);
+        //note the difference in size below reflects 6 decimal places in usdc vs 18 in Flax
+        uint256 ethPerUSDC = config.oracle.hintUpdate(address(config.inputToken), address(0), 1000000);
+        uint256 ethPerFlax = config.oracle.hintUpdate(address(config.flax), address(0), 1e18);
 
-        //factor = 7
-        uint256 ethPerFlax = config.flaxPerUSDCOracle.hintUpdate(address(config.flax), address(0), 10_000_000);
 
-        //factor = 12+7 = 1e19
-        uint256 ethPerShare = teraUSDCPerShare * ethPerUSDC;
-
-        //factor = 7+ 30 - 19 = 18
-        flaxReward = (ethPerFlax * 1e30) / ethPerShare;
+        flaxReward = USDC_v1_lib.calculate_derived_yield_increment(
+            config.teraVirtualInputPerSecond, accounting.lastUpdate, block.timestamp, ethPerUSDC, ethPerFlax
+        );
+        if (flaxReward > 0 || accounting.lastUpdate == 0) {
+            accounting.lastUpdate = block.timestamp;
+        }
     }
 
     function canStake(address depositor, uint256 amount) internal view override returns (bool, string memory) {

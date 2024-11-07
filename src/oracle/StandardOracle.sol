@@ -43,7 +43,7 @@ contract StandardOracle is IOracle, Ownable {
         _;
     }
 
-    constructor(address V2Router, uint256 deleteThisButDrawAttentionToParameterChangeSS) Ownable(msg.sender) {
+    constructor(address V2Router) Ownable(msg.sender) {
         IUniswapV2Router02 router = IUniswapV2Router02(V2Router);
         WETH = router.WETH();
         factory = IUniswapV2Factory(router.factory());
@@ -176,6 +176,8 @@ contract StandardOracle is IOracle, Ownable {
     }
 
     function isPair(address tokenA, address tokenB) private view returns (bool) {
+        tokenA = tokenA == address(0) ? WETH : tokenA;
+        tokenB = tokenB == address(0) ? WETH : tokenB;
         return factory.getPair(tokenA, tokenB) != address(0);
     }
 
