@@ -196,7 +196,6 @@ contract test_USDC_v1 is Test {
         addContractName("rewardPairAddress(Crv/Weth)", rewardPairAddress);
         //end create reward pair
 
-        //TODO: register USDC/eth
         oracle.RegisterPair(referencePairAddress, 30);
         oracle.RegisterPair(constants.USDC_eth_UniswapV2_address(), 30);
 
@@ -298,7 +297,6 @@ contract test_USDC_v1 is Test {
 
         require(upTo > 125000, "up to Test");
 
-        //TODO: price tilting is failing
         vm.assertGt(flaxPriceAfter, flaxPriceBefore);
         require(upTo > 130000, "up to Test");
     }
@@ -326,7 +324,7 @@ contract test_USDC_v1 is Test {
         // uint256 flaxPriceAfter = wethToFlaxRatio();
         uint256 flaxBalanceAfter = Flax.balanceOf(user1);
 
-        emit BALANC(flaxBalanceBefore,flaxBalanceAfter);
+        emit BALANC(flaxBalanceBefore, flaxBalanceAfter);
         // require(upTo > 105000, "up to");
         // vm.assertEq(flaxPriceAfter, flaxPriceBefore);
         // require(upTo > 105001, "up to");
@@ -520,9 +518,14 @@ contract test_USDC_v1 is Test {
 
         require(upTo > 1000000, "Up to testSimple");
         address recipient = address(0x1);
+        uint256 balanceBeforeWithdraw = USDC.balanceOf(recipient);
         vault.withdraw(1000 * ONE_USDC, recipient, true);
-    }
+        uint256 balanceAfterWithdraw = USDC.balanceOf(recipient);
 
+        uint256 change = balanceAfterWithdraw - balanceBeforeWithdraw;
+        vm.assertEq(change, 1000 * ONE_USDC);
+    }
+//TODO: remove 9/10 stuff and rather report on UI that USDC amount is lower.
     function testWithdrawalNoImpermanentLoss() public {
         uint256 upTo = envWithDefault("DebugUpTo", type(uint256).max);
         uint256 seeSawIterations = envWithDefault("seeSaw", type(uint256).max);
