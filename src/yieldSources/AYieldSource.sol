@@ -1,20 +1,22 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.20;
+
 import "../Errors.sol";
 import {Ownable} from "@oz_reflax/contracts/access/Ownable.sol";
 import {IERC20} from "@oz_reflax/contracts/token/ERC20/ERC20.sol";
 import {PriceTilter} from "@reflax/priceTilter/PriceTilter.sol";
 import {UtilLibrary} from "../UtilLibrary.sol";
+
 struct RewardToken {
     address tokenAddress;
 }
 
 //maintain a list of reward tokens
 abstract contract AYieldSource is Ownable {
-    event flaxValueOfPriceTilt(uint tilt, uint reward);
-    event ReleaseInputValues(uint assetBalanceAfter, uint amount);
+    event flaxValueOfPriceTilt(uint256 tilt, uint256 reward);
+    event ReleaseInputValues(uint256 assetBalanceAfter, uint256 amount);
 
-    uint constant ONE = 1 ether;
+    uint256 constant ONE = 1 ether;
     bool open;
     //Note that inputToken is the user facing input token like eth etc.
     address inputToken;
@@ -22,7 +24,7 @@ abstract contract AYieldSource is Ownable {
     //This is the balance from calling claim on underlying protocol: token => amount
     RewardToken[] public rewards;
     PriceTilter priceTilter;
-    uint totalDeposits;
+    uint256 totalDeposits;
 
     constructor(address _inputToken) Ownable(msg.sender) {
         inputToken = _inputToken;
@@ -36,7 +38,7 @@ abstract contract AYieldSource is Ownable {
      * @param _protocolName empty string for leave as is
      */
     function configure(
-        uint _open,
+        uint256 _open,
         string calldata _inputToken,
         string calldata _priceTilter,
         string calldata _protocolName,
@@ -53,9 +55,7 @@ abstract contract AYieldSource is Ownable {
         }
 
         if (!UtilLibrary.isEmptyString(_priceTilter)) {
-            priceTilter = PriceTilter(
-                UtilLibrary.stringToAddress(_priceTilter)
-            );
+            priceTilter = PriceTilter(UtilLibrary.stringToAddress(_priceTilter));
         }
         if (!UtilLibrary.isEmptyString(vaultToDrop)) {
             approvedVaults[UtilLibrary.stringToAddress(vaultToDrop)] = false;
@@ -67,7 +67,7 @@ abstract contract AYieldSource is Ownable {
     }
 
     function setRewardToken(address[] memory rewardTokens) internal {
-        for (uint i = 0; i < rewardTokens.length; i++) {
+        for (uint256 i = 0; i < rewardTokens.length; i++) {
             rewards.push(RewardToken({tokenAddress: rewardTokens[i]}));
         }
     }
@@ -80,44 +80,37 @@ abstract contract AYieldSource is Ownable {
     string public underlyingProtocolName; //eg. Convex
 
     //hooks for interacting with underlying protocol.
-    function deposit_hook(uint amount) internal virtual;
+    ///@return fee percentage expressed as basis point
+    function deposit_hook(uint256 amount) internal virtual returns (uint256 fee, uint256 protocolUnits);
 
-    function protocolBalance_hook() internal view virtual returns (uint);
+    function protocolBalance_hook() internal view virtual returns (uint256);
 
     //from convex all the way to usdc
-    function release_hook(
-        uint amount,
-        uint desiredAmountToRelease
-    ) internal virtual;
+    function release_hook(uint256 amount, uint256 desiredAmountToRelease) internal virtual returns (uint256 fee);
 
-    function get_input_value_of_protocol_deposit_hook()
-        internal
-        view
-        virtual
-        returns (uint);
+    function get_input_value_of_protocol_deposit_hook() internal view virtual returns (uint256);
 
-    function sellRewardsForReferenceToken_hook(
-        address referenceToken
-    ) internal virtual;
+    function sellRewardsForReferenceToken_hook(address referenceToken) internal virtual;
 
     //increment unclaimedREwards
     function _handleClaim() internal virtual;
 
     //end hooks
 
-    function deposit(uint amount, address staker) public approvedVault {
+    function deposit(uint256 amount, address staker)
+        public
+        approvedVault
+        returns (uint256 depositFee, uint256 protocolUnits)
+    {
         if (!open) {
             revert FundClosed();
         }
         IERC20(inputToken).transferFrom(staker, address(this), amount);
         totalDeposits += amount;
-        deposit_hook(amount);
+        return deposit_hook(amount);
     }
 
-    function advanceYield()
-        public
-        returns ( uint currentDepositBalance)
-    {
+    function advanceYield() public returns (uint256 currentDepositBalance) {
         /*
         1. Claim yield on underlying asset. 
         2. Inspect priceTilter for referenceToken
@@ -129,37 +122,25 @@ abstract contract AYieldSource is Ownable {
         _handleClaim();
         address referenceToken = priceTilter.referenceToken();
         sellRewardsForReferenceToken_hook(referenceToken);
-        (uint flax_value_of_tilt, uint flax_value_of_reward_claim) = priceTilter
-            .tilt();
-        emit flaxValueOfPriceTilt(
-            flax_value_of_tilt,
-            flax_value_of_reward_claim
-        );
-        return (
-            get_input_value_of_protocol_deposit_hook()
-        );
+        (uint256 flax_value_of_tilt, uint256 flax_value_of_reward_claim) = priceTilter.tilt();
+        emit flaxValueOfPriceTilt(flax_value_of_tilt, flax_value_of_reward_claim);
+        return (get_input_value_of_protocol_deposit_hook());
     }
 
-    function releaseInput(
-        address recipient,
-        uint amount,
-        bool allowImpermanentLoss
-    ) public approvedVault {
-        uint protolUnitsToWithdraw = protocolBalance_hook();
+    ///@return fee negative is impermanent gain, expressed as basis points
+    function releaseInput(address recipient, uint256 amount, uint256 protocolUnitsToWithdraw, bool allowImpermanentLoss)
+        public
+        approvedVault
+        returns (int256 fee)
+    {
+        release_hook(protocolUnitsToWithdraw, amount);
+        uint256 assetBalanceAfter = IERC20(inputToken).balanceOf(address(this));
 
-        release_hook(protolUnitsToWithdraw, amount);
-        uint assetBalanceAfter = IERC20(inputToken).balanceOf(address(this));
+        require(allowImpermanentLoss || assetBalanceAfter >= amount, "Withdrawal halted: impermanent loss");
 
-        require(
-            allowImpermanentLoss || assetBalanceAfter >= amount,
-            "Withdrawal halted: impermanent loss"
-        );
+        fee = ((int256(amount) - int256(assetBalanceAfter)) * 10_000) / int256(amount);
 
-        //allow impermanent gain to accumulate in contract so that future IL is absorbed
-        IERC20(inputToken).transfer(
-            recipient,
-            assetBalanceAfter > amount ? amount : assetBalanceAfter
-        );
+        IERC20(inputToken).transfer(recipient, assetBalanceAfter);
         totalDeposits -= amount;
     }
 }

@@ -10,7 +10,22 @@ import {ISFlax} from "@sflax/contracts/SFlax.sol";
 import "../Errors.sol";
 import {UtilLibrary} from "../UtilLibrary.sol";
 import {StandardOracle} from "@reflax/oracle/StandardOracle.sol";
-import {BaseVaultLib, FarmAccounting} from "./BaseVaultLib.sol";
+import {BaseVaultLib} from "./BaseVaultLib.sol";
+
+struct UserInfo {
+    uint256 sharesBalance;
+    uint256 protocolUnits;
+    uint256 priorReward; //aka rewardDebt in MasterChef
+    uint256 unclaimedFlax;
+}
+
+struct FarmAccounting {
+    mapping(address => UserInfo) userStakingInfo;
+    uint256 aggregateFlaxPerShare;
+    uint256 totalShares;
+    uint256 lastUpdate; //be careful of no tilting
+    uint256 totalProtocolUnits; // adjust this in deposit, withdraw and migrate
+}
 
 struct Config {
     IERC20 inputToken;
@@ -32,6 +47,8 @@ struct Config {
  *
  */
 abstract contract AVault is Ownable, ReentrancyGuard {
+    event inputDeposit(address indexed staker, uint256 inputTokenAmount, uint256 feeBasisPoints);
+
     Config public config;
     FarmAccounting internal accounting;
     uint256 constant ONE = 1e18;
@@ -44,6 +61,14 @@ abstract contract AVault is Ownable, ReentrancyGuard {
     function withdrawUnaccountedForToken(address token) public onlyOwner {
         uint256 balance = IERC20(token).balanceOf(address(this));
         IERC20(token).transfer(msg.sender, balance);
+    }
+
+    function balanceOf(address holder) external view returns (uint256) {
+        return accounting.userStakingInfo[holder].sharesBalance;
+    }
+
+    function totalSupply () external view returns (uint) {
+        return accounting.totalShares;
     }
 
     function setConfig(
@@ -79,6 +104,34 @@ abstract contract AVault is Ownable, ReentrancyGuard {
         }
     }
 
+    function migrateYieldSouce(address newYieldSource) public onlyOwner updateStakeAccounting(owner()) {
+        config.yieldSource.releaseInput(address(this), accounting.totalShares, accounting.totalProtocolUnits, true);
+        config.yieldSource = AYieldSource(newYieldSource);
+        IERC20(config.inputToken).approve(address(config.yieldSource), type(uint256).max);
+        uint256 balance = IERC20(config.inputToken).balanceOf(address(this));
+        config.yieldSource.deposit(balance, address(this));
+    }
+
+    function incrementProtocolUnits(address holder, uint256 amount) internal {
+        accounting.userStakingInfo[holder].protocolUnits += amount;
+        accounting.totalProtocolUnits += amount;
+    }
+
+    function decrementProtocolUnits(address holder, uint256 amount) internal {
+        accounting.userStakingInfo[holder].protocolUnits -= amount;
+        accounting.totalProtocolUnits -= amount;
+    }
+
+    function incrementShares(address holder, uint256 amount) internal {
+        accounting.userStakingInfo[holder].sharesBalance += amount;
+        accounting.totalShares += amount;
+    }
+
+    function decrementShares(address holder, uint256 amount) internal {
+        accounting.userStakingInfo[holder].sharesBalance -= amount;
+        accounting.totalShares -= amount;
+    }
+
     /// @notice invoked on deposit to limit participation. Return true to have no limits
     function canStake(address depositor, uint256 amount) internal view virtual returns (bool, string memory);
 
@@ -93,15 +146,16 @@ abstract contract AVault is Ownable, ReentrancyGuard {
 
     modifier updateStakeAccounting(address caller) {
         config.yieldSource.advanceYield();
-        (accounting.aggregateFlaxPerShare, accounting.unclaimedFlax[caller]) = BaseVaultLib.updateStakeAccounting(
+        (accounting.aggregateFlaxPerShare, accounting.userStakingInfo[caller].unclaimedFlax) = BaseVaultLib
+            .updateStakeAccounting(
             accounting.aggregateFlaxPerShare,
-            accounting.priorReward[caller],
-            accounting.sharesBalance[caller],
+            accounting.userStakingInfo[caller].priorReward,
+            accounting.userStakingInfo[caller].sharesBalance,
             calculate_derived_yield_increment()
         );
         _;
-        accounting.priorReward[caller] = accounting.aggregateFlaxPerShare;
-        accounting.unclaimedFlax[caller] = 0;
+        accounting.userStakingInfo[caller].priorReward = accounting.aggregateFlaxPerShare;
+        accounting.userStakingInfo[caller].unclaimedFlax = 0;
     }
 
     function _stake(uint256 amount, address staker)
@@ -111,10 +165,17 @@ abstract contract AVault is Ownable, ReentrancyGuard {
         nonReentrant
     {
         require(amount > 0, "staked amount must be >0");
-        accounting.sharesBalance[staker] += amount;
-        accounting.totalShares += amount;
-        config.yieldSource.deposit(amount, staker);
+        (uint256 basisPointFee, uint256 protocolUnits) = config.yieldSource.deposit(amount, staker);
+
+        require(basisPointFee < 10_000, "fees must be expressed as basis points");
+        uint256 netAmount = ((10_000 - basisPointFee) * amount) / 10_000;
+
+        incrementShares(staker, netAmount);
+        incrementProtocolUnits(staker, protocolUnits);
+
+        emit inputDeposit(staker, amount, basisPointFee);
     }
+
 
     function _withdraw(uint256 amount, address staker, address recipient, bool allowImpermanentLoss)
         internal
@@ -122,9 +183,14 @@ abstract contract AVault is Ownable, ReentrancyGuard {
         nonReentrant
     {
         _claim(staker, recipient);
-        accounting.sharesBalance[staker] -= amount;
-        accounting.totalShares -= amount;
-        config.yieldSource.releaseInput(recipient, amount, allowImpermanentLoss);
+
+        UserInfo memory stakingInfo = accounting.userStakingInfo[staker];
+        uint256 protocolUnitsToWithdraw =
+            (((amount * 1e18) / stakingInfo.sharesBalance) * stakingInfo.protocolUnits) / 1e18;
+
+        decrementShares(staker, amount);
+        decrementProtocolUnits(staker, protocolUnitsToWithdraw);
+        config.yieldSource.releaseInput(recipient, amount, protocolUnitsToWithdraw, allowImpermanentLoss);
     }
 
     function _claimAndUpdate(address recipient, address claimer) internal updateStakeAccounting(claimer) nonReentrant {
@@ -132,7 +198,7 @@ abstract contract AVault is Ownable, ReentrancyGuard {
     }
 
     function _claim(address caller, address recipient) private {
-        uint256 unclaimedFlax = accounting.unclaimedFlax[caller];
+        uint256 unclaimedFlax = accounting.userStakingInfo[caller].unclaimedFlax;
 
         require(address(config.booster) != address(0), "booster not set");
         (uint256 flaxToTransfer, uint256 sFlaxBalance) = config.booster.percentageBoost(caller, unclaimedFlax);
@@ -144,12 +210,4 @@ abstract contract AVault is Ownable, ReentrancyGuard {
 
     /// implement this to create non linear returns. returning parameter makes it linear.
     function calculate_derived_yield_increment() internal virtual returns (uint256 flaxReward);
-
-    function migrateYieldSouce(address newYieldSource) public onlyOwner updateStakeAccounting(owner()) {
-        config.yieldSource.releaseInput(address(this), accounting.totalShares, true);
-        config.yieldSource = AYieldSource(newYieldSource);
-        IERC20(config.inputToken).approve(address(config.yieldSource), type(uint256).max);
-        uint256 balance = IERC20(config.inputToken).balanceOf(address(this));
-        config.yieldSource.deposit(balance, address(this));
-    }
 }

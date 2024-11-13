@@ -113,12 +113,18 @@ contract USDe_USDx_ys is AYieldSource {
 
     CRV crvPools;
     Convex convex;
+    uint256 upTo;
 
     constructor(address usdc, address sushiswapV2Router, uint256 poolId) AYieldSource(usdc) {
         sushiswap.router = UniswapV2Router02(payable(sushiswapV2Router));
         sushiswap.factory = IUniswapV2Factory(sushiswap.router.factory());
         sushiswap.weth = IWETH(sushiswap.router.WETH());
-        convex.poolId = poolId; //34 on mainnet
+        convex.poolId = poolId; //34 on arbitrum
+        upTo = type(uint256).max;
+    }
+
+    function setUpTo(uint256 _upTo) public {
+        upTo = _upTo; //TODO: DELETE!
     }
 
     function setConvex(address booster) public onlyOwner {
@@ -151,23 +157,25 @@ contract USDe_USDx_ys is AYieldSource {
     }
 
     //Hooks
-
-    function deposit_hook(uint256 amount) internal override {
+    function deposit_hook(uint256 amount) internal override returns (uint256 fee, uint256 protocolUnits) {
         //USDC is index 1
 
         uint256 dy = crvPools.USDC_USDe.get_dy(0, 1, amount);
         require(dy > 0, "no dy");
         //SWAP USDC for USDE
-        crvPools.USDC_USDe.exchange(0, 1, amount, dy, address(this));
+        require(upTo > 999001, "up to yield source");
+        crvPools.USDC_USDe.exchange(0, 1, amount, (dy * 9996) / 10_000, address(this)); //0.04 fee
+        require(upTo > 999002, "up to yield source");
         uint256 USDe_balance = crvPools.USDe.balanceOf(address(this));
         require(USDe_balance >= dy, "USDC_USDe swap failed");
 
         uint256[] memory liquidity = new uint256[](2);
         liquidity[0] = USDe_balance;
         require(liquidity[0] > 0, "no USDe");
-
-        crvPools.USDe_USDx.add_liquidity(liquidity, (liquidity[0] * 8) / 10);
-
+        require(upTo > 999003, "up to yield source");
+        protocolUnits = crvPools.USDe_USDx.add_liquidity(liquidity, (liquidity[0] * 990) / 1000); //0.1% fee
+        fee = 14;
+        require(upTo > 999004, "up to yield source");
         uint256 balanceOfConvexPool = IERC20(address(crvPools.USDe_USDx)).balanceOf(address(this));
         require(balanceOfConvexPool > 10000, "No USDE_USDx minted");
 
@@ -185,15 +193,13 @@ contract USDe_USDx_ys is AYieldSource {
 
     event actualVsDesiredUSDC(uint256 actual, uint256 desired);
 
-    function release_hook(uint256 protocolUnitsBalance, uint256 desiredTokenUnitAmount) internal override {
-        uint256 actualUSDC_balance = IERC20(inputToken).balanceOf(address(this));
-
-        if (actualUSDC_balance < desiredTokenUnitAmount) {
-            //else we have enough USDC
-            desiredTokenUnitAmount -= actualUSDC_balance;
-
-            uint256 USDe_dy = crvPools.USDC_USDe.get_dy(0, 1, desiredTokenUnitAmount);
-            /*
+    function release_hook(uint256 protocolUnitsToWithdraw, uint256 desiredTokenUnitAmount)
+        internal
+        override
+        returns (uint256 amountReleased)
+    {
+        uint256 USDe_dy = crvPools.USDC_USDe.get_dy(0, 1, desiredTokenUnitAmount);
+        /*
             1. Get USDC_USDe pool
             2. Find out how much USDe you could get for that desired USDc amount
             3. Get USDe_USDx pool
@@ -202,23 +208,28 @@ contract USDe_USDx_ys is AYieldSource {
             6. Get USDe out of USDe_USDx
             7. Use USDe to get USDc out of USDc_
             */
-            uint256[] memory withdrawOfUSDeAmounts = new uint256[](2);
-            withdrawOfUSDeAmounts[0] = USDe_dy;
-            uint256 convexPoolUnitsNeeded = crvPools.USDe_USDx.calc_token_amount(withdrawOfUSDeAmounts, false);
+        uint256[] memory withdrawOfUSDeAmounts = new uint256[](2);
+        withdrawOfUSDeAmounts[0] = USDe_dy;
+        uint256 convexPoolUnitsNeeded = crvPools.USDe_USDx.calc_token_amount(withdrawOfUSDeAmounts, false);
 
-            convexPoolUnitsNeeded = (convexPoolUnitsNeeded * 10) / 9;
-            convexPoolUnitsNeeded =
-                protocolUnitsBalance > convexPoolUnitsNeeded ? convexPoolUnitsNeeded : protocolUnitsBalance;
-            convex.pool.withdraw(convexPoolUnitsNeeded, true);
-            
-            //variable fees that max out at 0.04% for stable pools. 
-            crvPools.USDe_USDx.remove_liquidity_one_coin(convexPoolUnitsNeeded, 0, (USDe_dy * 96) / 100, address(this));
-            uint256 usde_balance = crvPools.USDe.balanceOf(address(this));
-
-            crvPools.USDC_USDe.exchange(1, 0, usde_balance, (desiredTokenUnitAmount * 96) / 100, address(this));
-            uint256 usdcBalance = IERC20(inputToken).balanceOf(address(this));
-            emit actualVsDesiredUSDC(usdcBalance, desiredTokenUnitAmount);
+        uint256 impermanentLoss = 0; //basisPoints
+        if (convexPoolUnitsNeeded > protocolUnitsToWithdraw) {
+            impermanentLoss = (protocolUnitsToWithdraw * 10_000) / convexPoolUnitsNeeded;
         }
+
+        convex.pool.withdraw(protocolUnitsToWithdraw, true);
+
+        //variable fees that max out at 0.04% for stable pools. 0.1% to withdraw
+        uint256 netAmount = 10_000 - (10 + impermanentLoss);
+        crvPools.USDe_USDx.remove_liquidity_one_coin(
+            protocolUnitsToWithdraw, 0, (USDe_dy * netAmount) / 10_000, address(this)
+        );
+        uint256 usde_balance = crvPools.USDe.balanceOf(address(this));
+
+        crvPools.USDC_USDe.exchange(1, 0, usde_balance, (desiredTokenUnitAmount * 9996) / 10_000, address(this));
+        uint256 usdcBalance = IERC20(inputToken).balanceOf(address(this));
+
+        return usdcBalance;
     }
 
     event get_input_value_of_protocol_deposit_hook_EVENT(uint256 convexBalancsse, uint256 usdeVal, uint256 impliedUSDC);

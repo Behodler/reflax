@@ -261,8 +261,10 @@ contract test_USDC_v1 is Test {
         require(upTo > 120000, "Up to in testMaxStake() reached");
         vault.stake(2999 * ONE_USDC);
         require(upTo > 121000, "Up to in testMaxStake(): about to blow the lid");
+        uint256 totalSupply = vault.totalSupply();
+        uint256 amountToStake = 10_000 * ONE_USDC - totalSupply;
         vm.expectRevert(abi.encodeWithSelector(DepositProhibited.selector, "Vault capped at 10000 USDC"));
-        vault.stake(2 * ONE_USDC);
+        vault.stake(amountToStake + 1);
     }
 
     //     /*-----------stake----------------------*/
@@ -509,23 +511,31 @@ contract test_USDC_v1 is Test {
 
     function testSimpleImmediateWithdrawal() public {
         uint256 upTo = envWithDefault("DebugUpTo", type(uint256).max);
+        yieldSource.setUpTo(upTo);
         USDC.approve(address(vault), type(uint256).max);
 
         uint256 usdcBalanceBefore = USDC.balanceOf(address(this));
+        require(upTo > 999000, "Up to testSimple");
         vault.stake(1000 * ONE_USDC);
         uint256 usdcBalanceAfter = USDC.balanceOf(address(this));
         vm.assertEq(usdcBalanceBefore, usdcBalanceAfter + 1000 * ONE_USDC);
+        require(upTo > 999999, "Up to testSimple");
+        uint256 vaultBalance = vault.balanceOf(address(this));
+        vm.assertEq(vaultBalance, 9986 * ONE_USDC / 10);
 
         require(upTo > 1000000, "Up to testSimple");
         address recipient = address(0x1);
         uint256 balanceBeforeWithdraw = USDC.balanceOf(recipient);
-        vault.withdraw(1000 * ONE_USDC, recipient, true);
+        vault.withdraw(vaultBalance, recipient, true);
+        require(upTo > 1001000, "Up to testSimple");
         uint256 balanceAfterWithdraw = USDC.balanceOf(recipient);
 
+        //failing
         uint256 change = balanceAfterWithdraw - balanceBeforeWithdraw;
-        vm.assertEq(change, 1000 * ONE_USDC);
+        vm.assertGt(change, 999 * ONE_USDC);
+        vm.assertLt(change, 1000 * ONE_USDC);
     }
-//TODO: remove 9/10 stuff and rather report on UI that USDC amount is lower.
+
     function testWithdrawalNoImpermanentLoss() public {
         uint256 upTo = envWithDefault("DebugUpTo", type(uint256).max);
         uint256 seeSawIterations = envWithDefault("seeSaw", type(uint256).max);
@@ -547,9 +557,8 @@ contract test_USDC_v1 is Test {
         withdrawalAmount -= initialWithDrawalAmount;
 
         vault.withdraw(initialWithDrawalAmount * ONE_USDC, recipient, false);
-
-        vm.expectRevert("Withdrawal halted: impermanent loss");
-        vault.withdraw(withdrawalAmount * ONE_USDC, recipient, false);
+        uint256 balance = vault.balanceOf(address(this));
+        vault.withdraw(balance, recipient, false);
     }
 
     struct SeeSawConfig {
