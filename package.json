@@ -7,7 +7,7 @@
     "lib": "lib"
   },
   "scripts": {
-    "anvil-up": "./script/anvilUpAndDeploy.sh ",
+    "anvil-up": "./script/runDeploy.sh ",
     "anvil-down": "./script/anvilDown.sh",
     "wagmi-generate":"npx ts-node wagmi/generateSpec.ts && npx wagmi generate"
   },

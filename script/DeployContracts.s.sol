@@ -57,7 +57,24 @@ contract DeployContracts is Script {
         vm.ffi(inputs);
     }
 
+    uint256 upTo;
+    // This external function is required for using try-catch
+
+    function getEnvValue(string memory env_var) external view returns (uint256) {
+        return vm.envUint(env_var);
+    }
+
+    function envWithDefault(string memory env_var, uint256 defaultVal) public view returns (uint256 envValue) {
+        try this.getEnvValue(env_var) returns (uint256 value) {
+            envValue = value;
+        } catch {
+            // Fallback value if environment variable is missing
+            envValue = defaultVal; // Default value
+        }
+    }
+
     function run() public {
+        upTo = envWithDefault("DebugUpTo", type(uint256).max);
         /*
         0. VM.deal (address for testing)
         1. Deploy Flax
@@ -77,6 +94,7 @@ contract DeployContracts is Script {
         USDC = IERC20(constants.USDC());
         USDe = IERC20(constants.USDe());
         USDx = IERC20(constants.USDx());
+        require(upTo > 50, "up to");
         Flax = new Test_Token("Flax", ONE);
         sFlax = new SFlax();
         CRV_gov = IERC20(constants.CRV());
@@ -86,10 +104,10 @@ contract DeployContracts is Script {
         addContractName("Flax", address(Flax));
         addContractName("SFlax", address(sFlax));
         addContractName("SFlax", address(sFlax));
-
+        require(upTo > 60, "up to");
         sushiSwapMaker = new LocalUniswap(constants.sushiV2RouterO2_address());
         uniswapMaker = new LocalUniswap(constants.uniswapV2Router02_address());
-
+        require(upTo > 65, "up to");
         USDe_USDx_crv = CRV_pool(constants.USDe_USDx_address());
         addContractName("USDe_USDx_crv", address(USDe_USDx_crv));
 
@@ -119,6 +137,7 @@ contract DeployContracts is Script {
         addContractName("vault", address(vault));
 
         USDC.approve(address(vault), type(uint256).max);
+        require(upTo > 70, "no direct factory call yet");
 
         yieldSource = new USDe_USDx_ys(address(USDC), address(sushiSwapMaker.router()), constants.convexPoolId());
         addContractName("yieldSource", address(yieldSource));
@@ -130,12 +149,16 @@ contract DeployContracts is Script {
         address testFlaxConversion = UtilLibrary.stringToAddress(UtilLibrary.toAsciiString(address(Flax)));
         vm.assertEq(testFlaxConversion, address(Flax));
         //price tilter
-        oracle = new StandardOracle(address(uniswapMaker.factory()));
+        require(upTo > 90, "no direct factory call yet");
+        oracle = new StandardOracle(address(uniswapMaker.router())); // failing
+        require(upTo > 100, "factory did not fail");
         addContractName("oracle", address(oracle));
+        require(upTo > 105, "anothe 2 factories");
         vm.assertNotEq(address(uniswapMaker.WETH()), address(0));
-
+        require(upTo > 107, "anothe 2 factories");
         uniswapMaker.factory().createPair(address(Flax), address(uniswapMaker.WETH()));
         address referencePairAddress = uniswapMaker.factory().getPair(address(Flax), address(uniswapMaker.WETH()));
+        require(upTo > 110, "anothe 2 factories");
         addContractName("refPair(FLX/Weth)", referencePairAddress);
         Flax.mintUnits(1000, referencePairAddress);
         vm.deal(address(this), 100 ether);
@@ -155,19 +178,18 @@ contract DeployContracts is Script {
         priceTilter = new PriceTilter();
         priceTilter.setOracle(address(oracle));
         priceTilter.setTokens(address(uniswapMaker.WETH()), address(Flax), address(uniswapMaker.factory()));
-
+        require(upTo > 120, "setTokens");
         Flax.mintUnits(100_000_000, address(priceTilter));
 
         yieldSource.setCRV(address(CRV_gov));
         yieldSource.setCRVPools(address(USDC_USDe_crv), address(USDe_USDx_crv), address(USDe));
 
         yieldSource.approvals();
-
-        addContractName("mock sFlax", address(sFlax));
+        require(upTo > 130, "yieldsource approvals");
         boosterV1 = new BoosterV1(address(sFlax));
         sFlax.setApprovedBurner(address(boosterV1), true);
         addContractName("boosterV1", address(boosterV1));
-
+        require(upTo > 140, "set config before");
         vault.setConfig(
             vm.toString(address(Flax)),
             vm.toString(address(sFlax)),
@@ -180,7 +202,7 @@ contract DeployContracts is Script {
         yieldSource.configure(
             1, vm.toString(address(USDC)), vm.toString(address(priceTilter)), "convex", "", vm.toString(address(vault))
         );
-
+        require(upTo > 150, "configure after");
         Flax.mintUnits(1000_000_000, address(vault));
     }
 }
