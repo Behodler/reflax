@@ -113,18 +113,12 @@ contract USDe_USDx_ys is AYieldSource {
 
     CRV crvPools;
     Convex convex;
-    uint256 upTo;
 
     constructor(address usdc, address sushiswapV2Router, uint256 poolId) AYieldSource(usdc) {
         sushiswap.router = UniswapV2Router02(payable(sushiswapV2Router));
         sushiswap.factory = IUniswapV2Factory(sushiswap.router.factory());
         sushiswap.weth = IWETH(sushiswap.router.WETH());
         convex.poolId = poolId; //34 on arbitrum
-        upTo = type(uint256).max;
-    }
-
-    function setUpTo(uint256 _upTo) public {
-        upTo = _upTo; //TODO: DELETE!
     }
 
     function setConvex(address booster) public onlyOwner {
@@ -163,19 +157,15 @@ contract USDe_USDx_ys is AYieldSource {
         uint256 dy = crvPools.USDC_USDe.get_dy(0, 1, amount);
         require(dy > 0, "no dy");
         //SWAP USDC for USDE
-        require(upTo > 999001, "up to yield source");
         crvPools.USDC_USDe.exchange(0, 1, amount, (dy * 9996) / 10_000, address(this)); //0.04 fee
-        require(upTo > 999002, "up to yield source");
         uint256 USDe_balance = crvPools.USDe.balanceOf(address(this));
         require(USDe_balance >= dy, "USDC_USDe swap failed");
 
         uint256[] memory liquidity = new uint256[](2);
         liquidity[0] = USDe_balance;
         require(liquidity[0] > 0, "no USDe");
-        require(upTo > 999003, "up to yield source");
         protocolUnits = crvPools.USDe_USDx.add_liquidity(liquidity, (liquidity[0] * 990) / 1000); //0.1% fee
         fee = 14;
-        require(upTo > 999004, "up to yield source");
         uint256 balanceOfConvexPool = IERC20(address(crvPools.USDe_USDx)).balanceOf(address(this));
         require(balanceOfConvexPool > 10000, "No USDE_USDx minted");
 

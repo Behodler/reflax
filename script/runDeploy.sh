@@ -14,7 +14,7 @@ cd "$SCRIPT_DIR"
 LOG_FILE="../anvil.log"
 
 # Start anvil in the background and redirect all output to log file
-anvil -f $RPC_URL --block-time 1 --port 8545 --accounts 10 >"$LOG_FILE" 2>&1 &
+anvil -f $RPC_URL --chain-id 31337 --block-time 1 --port 8545 --accounts 10 >"$LOG_FILE" 2>&1 &
 
 # # Get the PID of the anvil process
 ANVIL_PID=$!
@@ -29,7 +29,8 @@ sleep 10
 # forge script ./DeployContracts.s.sol --tc DeployContracts --broadcast --rpc-url=http://localhost:8545 --json
 
 echo $RPC_URL
-touch addresses.txt && rm addresses.txt && forge script --ffi --rpc-url=http://localhost:8545 ./DeployContracts.s.sol --slow -g 200 --gas-limit 80000000 --via-ir --tc DeployContracts --broadcast --private-key 0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d
+touch addresses.txt && rm addresses.txt && forge script --ffi --rpc-url=http://localhost:8545 ./DeployContracts.s.sol --slow -g 200 --gas-limit 8000000000 --via-ir --tc DeployContracts --broadcast --private-key 0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d
+# --verify
 
 echo "executing node script"
 # node updateRedis.js

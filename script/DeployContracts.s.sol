@@ -20,6 +20,9 @@ import {PriceTilter} from "@reflax/priceTilter/PriceTilter.sol";
 import {IUniswapV2Factory} from "@uniswap_reflax/core/interfaces/IUniswapV2Factory.sol";
 import {IUniswapV2Pair} from "@uniswap_reflax/core/interfaces/IUniswapV2Pair.sol";
 import {IWETH} from "@uniswap_reflax/periphery/interfaces/IWETH.sol";
+import {IUniswapV2Router02} from "@uniswap_reflax/periphery/interfaces/IUniswapV2Router02.sol";
+import {UniswapV2Library} from "@uniswap_reflax/periphery/libraries/UniswapV2Library.sol";
+
 import {Ownable} from "@oz_reflax/contracts/access/Ownable.sol";
 import {ArbitrumConstants} from "ztest/ArbitrumConstants.sol";
 import {SFlax} from "@sflax/contracts/SFlax.sol";
@@ -74,6 +77,8 @@ contract DeployContracts is Script {
     }
 
     function run() public {
+        vm.startBroadcast();
+
         upTo = envWithDefault("DebugUpTo", type(uint256).max);
         /*
         0. VM.deal (address for testing)
@@ -103,7 +108,6 @@ contract DeployContracts is Script {
         addContractName("USDx", address(USDx));
         addContractName("Flax", address(Flax));
         addContractName("SFlax", address(sFlax));
-        addContractName("SFlax", address(sFlax));
         require(upTo > 60, "up to");
         sushiSwapMaker = new LocalUniswap(constants.sushiV2RouterO2_address());
         uniswapMaker = new LocalUniswap(constants.uniswapV2Router02_address());
@@ -116,13 +120,42 @@ contract DeployContracts is Script {
 
         uint256 USDC_whaleBalance = USDC.balanceOf(constants.USDC_whale());
 
-        //"steal" USDC from whale to use in testing
-        vm.prank(constants.USDC_whale());
-        USDC.transfer(address(this), USDC_whaleBalance);
+        //Buy USDC
+        address[] memory path = new address[](2);
+        IUniswapV2Router02 router = IUniswapV2Router02(constants.uniswapV2Router02_address());
+        address weth = router.WETH();
+        path[0] = weth;
+        path[1] = constants.USDC();
 
-        uint256 USDe_whaleBalance = USDe.balanceOf(constants.USDe_whale());
-        vm.prank(constants.USDe_whale());
-        USDe.transfer(address(this), USDe_whaleBalance);
+        (address token0,) = UniswapV2Library.sortTokens(weth, constants.USDC());
+        IUniswapV2Pair ethUSDCPair = IUniswapV2Pair(IUniswapV2Factory(router.factory()).getPair(weth, constants.USDC())); //.getPair(weth,constants.USDC());
+
+        (uint256 wethReserve, uint256 USDCReserve,) = ethUSDCPair.getReserves();
+        if (token0 != weth) {
+            uint256 temp = wethReserve;
+            wethReserve = USDCReserve;
+            USDCReserve = temp;
+        }
+        uint256 outAmount = router.getAmountOut(10 ether, wethReserve, USDCReserve);
+        /*
+       function swapExactETHForTokens(
+        uint amountOutMin,
+        address[] calldata path,
+        address to,
+        uint deadline
+    )
+       */
+        IWETH(weth).deposit{value: 100 ether}();
+        IERC20(weth).approve(address(router), type(uint256).max);
+        router.swapExactTokensForTokens(100 ether, outAmount, path, msg.sender, type(uint256).max);
+        uint256 usdcBalance = IERC20(constants.USDC()).balanceOf(msg.sender);
+        require(usdcBalance > 100e6, "balance not good");
+        // vm.prank(constants.USDC_whale());
+        // USDC.transfer(address(this), USDC_whaleBalance / 2);
+        // USDC.transfer(msg.sender, USDC_whaleBalance / 2);
+        // uint256 USDe_whaleBalance = USDe.balanceOf(constants.USDe_whale());
+        // vm.prank(constants.USDe_whale());
+        // USDe.transfer(address(this), USDe_whaleBalance);
 
         USDC.approve(address(USDC_USDe_crv), type(uint256).max);
 
@@ -204,5 +237,6 @@ contract DeployContracts is Script {
         );
         require(upTo > 150, "configure after");
         Flax.mintUnits(1000_000_000, address(vault));
+        vm.stopBroadcast();
     }
 }

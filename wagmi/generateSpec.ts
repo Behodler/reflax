@@ -7,7 +7,8 @@ const contractsToGenerate: string[] =
         "USDe_USDx_ys",
         "USDC_v1",
         "SFlax",
-        "IsFlax"
+        "IsFlax",
+        "Flax"
     ];
 interface JSONFormat {
     abi: any[]

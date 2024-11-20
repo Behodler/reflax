@@ -24,20 +24,17 @@ import "src/Errors.sol";
 import {Ownable} from "@oz_reflax/contracts/access/Ownable.sol";
 import {ArbitrumConstants} from "../ArbitrumConstants.sol";
 import {SFlax} from "@sflax/contracts/SFlax.sol";
+import {Flax} from "../mocks/Flax.sol";
 
-contract Test_Token is ERC20 {
+contract Test_Token is Flax {
     uint256 unitSize;
 
-    constructor(string memory name, uint256 _unitSize) ERC20(name, name) {
+    constructor(string memory name, uint256 _unitSize) Flax(name) {
         unitSize = _unitSize;
     }
 
     function mintUnits(uint256 amount, address recipient) public {
         _mint(recipient, amount * unitSize);
-    }
-
-    function burn(uint256 amount) public {
-        _burn(msg.sender, amount);
     }
 }
 
@@ -511,7 +508,6 @@ contract test_USDC_v1 is Test {
 
     function testSimpleImmediateWithdrawal() public {
         uint256 upTo = envWithDefault("DebugUpTo", type(uint256).max);
-        yieldSource.setUpTo(upTo);
         USDC.approve(address(vault), type(uint256).max);
 
         uint256 usdcBalanceBefore = USDC.balanceOf(address(this));
