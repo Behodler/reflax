@@ -26,6 +26,8 @@ import {UniswapV2Library} from "@uniswap_reflax/periphery/libraries/UniswapV2Lib
 import {Ownable} from "@oz_reflax/contracts/access/Ownable.sol";
 import {ArbitrumConstants} from "ztest/ArbitrumConstants.sol";
 import {SFlax} from "@sflax/contracts/SFlax.sol";
+import {FlaxLocker} from "@sflax/contracts/FlaxLocker.sol";
+
 import {Test_Token} from "ztest/vaults/test_USDC_v1.sol";
 
 contract DeployContracts is Script {
@@ -101,13 +103,13 @@ contract DeployContracts is Script {
         USDx = IERC20(constants.USDx());
         require(upTo > 50, "up to");
         Flax = new Test_Token("Flax", ONE);
-        sFlax = new SFlax();
+
         CRV_gov = IERC20(constants.CRV());
         addContractName("USDC", address(USDC));
         addContractName("USDe", address(USDe));
         addContractName("USDx", address(USDx));
         addContractName("Flax", address(Flax));
-        addContractName("SFlax", address(sFlax));
+
         require(upTo > 60, "up to");
         sushiSwapMaker = new LocalUniswap(constants.sushiV2RouterO2_address());
         uniswapMaker = new LocalUniswap(constants.uniswapV2Router02_address());
@@ -220,8 +222,18 @@ contract DeployContracts is Script {
         yieldSource.approvals();
         require(upTo > 130, "yieldsource approvals");
         boosterV1 = new BoosterV1(address(sFlax));
-        sFlax.setApprovedBurner(address(boosterV1), true);
         addContractName("boosterV1", address(boosterV1));
+        
+        FlaxLocker locker = new FlaxLocker(address(vm));
+        addContractName("FlaxLocker", address(locker));
+        
+        locker.setConfig(address(Flax), address(0), 500, (1 ether) / 1000_000);
+        locker.setBooster(address(boosterV1), true);
+
+        (,,, sFlax) = locker.config();
+        require(address(sFlax) != address(0), "sFlax has not been set");
+        addContractName("SFlax", address(sFlax));
+
         require(upTo > 140, "set config before");
         vault.setConfig(
             vm.toString(address(Flax)),
