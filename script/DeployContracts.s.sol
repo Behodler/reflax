@@ -150,6 +150,7 @@ contract DeployContracts is Script {
         IWETH(weth).deposit{value: 100 ether}();
         IERC20(weth).approve(address(router), type(uint256).max);
         router.swapExactTokensForTokens(100 ether, outAmount, path, msg.sender, type(uint256).max);
+        require(msg.sender == address(0x70997970C51812dc3A010C7d01b50e0d17dc79C8),"msg.sender wrong");
         uint256 usdcBalance = IERC20(constants.USDC()).balanceOf(msg.sender);
         require(usdcBalance > 100e6, "balance not good");
         // vm.prank(constants.USDC_whale());
@@ -226,7 +227,7 @@ contract DeployContracts is Script {
         
         FlaxLocker locker = new FlaxLocker(address(vm));
         addContractName("FlaxLocker", address(locker));
-        
+
         locker.setConfig(address(Flax), address(0), 500, (1 ether) / 1000_000);
         locker.setBooster(address(boosterV1), true);
 
@@ -240,7 +241,7 @@ contract DeployContracts is Script {
             vm.toString(address(sFlax)),
             vm.toString(address(yieldSource)),
             vm.toString(address(boosterV1)),
-            3170,
+            6341, //~19% To calculate, simply multiply by year of seconds and divide by a trillion
             vm.toString(address(oracle))
         );
 
