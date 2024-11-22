@@ -228,10 +228,10 @@ contract DeployContracts is Script {
         FlaxLocker locker = new FlaxLocker(address(vm));
         addContractName("FlaxLocker", address(locker));
 
-        locker.setConfig(address(Flax), address(0), 500, (1 ether) / 1000_000);
+        locker.setConfig(address(Flax), address(0), (1 ether) / 1000_000);
         locker.setBooster(address(boosterV1), true);
 
-        (,,, sFlax) = locker.config();
+        (,, sFlax) = locker.config();
         require(address(sFlax) != address(0), "sFlax has not been set");
         addContractName("SFlax", address(sFlax));
 
