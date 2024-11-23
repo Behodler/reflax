@@ -5,7 +5,7 @@ import {AVault} from "@reflax/vaults/AVault.sol";
 import {USDC_v1_lib} from "./USDC_v1_lib.sol";
 
 contract USDC_v1 is AVault {
-    uint256 maxStake = 10_000 * 1e6; //$10000
+    uint256 public maxStake = 10_000 * 1e6; //$10000
 
     constructor(address inputTokenAddress) AVault(inputTokenAddress) {}
 

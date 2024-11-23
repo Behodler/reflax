@@ -67,7 +67,7 @@ abstract contract AVault is Ownable, ReentrancyGuard {
         return accounting.userStakingInfo[holder].sharesBalance;
     }
 
-    function totalSupply () external view returns (uint) {
+    function totalSupply() external view returns (uint256) {
         return accounting.totalShares;
     }
 
@@ -145,17 +145,21 @@ abstract contract AVault is Ownable, ReentrancyGuard {
     }
 
     modifier updateStakeAccounting(address caller) {
+        (accounting.aggregateFlaxPerShare, accounting.userStakingInfo[caller].unclaimedFlax) = updateAccounting(caller);
+        _;
+        accounting.userStakingInfo[caller].priorReward = accounting.aggregateFlaxPerShare;
+        accounting.userStakingInfo[caller].unclaimedFlax = 0;
+    }
+
+    function updateAccounting(address caller) public returns (uint256 unclaimedFlax, uint256 aggregateFlaxPerShare) {
         config.yieldSource.advanceYield();
-        (accounting.aggregateFlaxPerShare, accounting.userStakingInfo[caller].unclaimedFlax) = BaseVaultLib
-            .updateStakeAccounting(
+        (aggregateFlaxPerShare, unclaimedFlax) = BaseVaultLib.updateStakeAccounting(
             accounting.aggregateFlaxPerShare,
             accounting.userStakingInfo[caller].priorReward,
             accounting.userStakingInfo[caller].sharesBalance,
             calculate_derived_yield_increment()
         );
-        _;
-        accounting.userStakingInfo[caller].priorReward = accounting.aggregateFlaxPerShare;
-        accounting.userStakingInfo[caller].unclaimedFlax = 0;
+        unclaimedFlax +=accounting.userStakingInfo[caller].unclaimedFlax;
     }
 
     function _stake(uint256 amount, address staker)
@@ -175,7 +179,6 @@ abstract contract AVault is Ownable, ReentrancyGuard {
 
         emit inputDeposit(staker, amount, basisPointFee);
     }
-
 
     function _withdraw(uint256 amount, address staker, address recipient, bool allowImpermanentLoss)
         internal
