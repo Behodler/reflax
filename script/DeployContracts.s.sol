@@ -150,7 +150,7 @@ contract DeployContracts is Script {
         IWETH(weth).deposit{value: 100 ether}();
         IERC20(weth).approve(address(router), type(uint256).max);
         router.swapExactTokensForTokens(100 ether, outAmount, path, msg.sender, type(uint256).max);
-        require(msg.sender == address(0x70997970C51812dc3A010C7d01b50e0d17dc79C8),"msg.sender wrong");
+        require(msg.sender == address(0x70997970C51812dc3A010C7d01b50e0d17dc79C8), "msg.sender wrong");
         uint256 usdcBalance = IERC20(constants.USDC()).balanceOf(msg.sender);
         require(usdcBalance > 100e6, "balance not good");
         // vm.prank(constants.USDC_whale());
@@ -224,7 +224,7 @@ contract DeployContracts is Script {
         require(upTo > 130, "yieldsource approvals");
         boosterV1 = new BoosterV1(address(sFlax));
         addContractName("boosterV1", address(boosterV1));
-        
+
         FlaxLocker locker = new FlaxLocker(address(vm));
         addContractName("FlaxLocker", address(locker));
 
@@ -250,6 +250,7 @@ contract DeployContracts is Script {
         );
         require(upTo > 150, "configure after");
         Flax.mintUnits(1000_000_000, address(vault));
+        Flax.mintUnits(1000, msg.sender);
         vm.stopBroadcast();
     }
 }
