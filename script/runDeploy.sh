@@ -13,8 +13,16 @@ cd "$SCRIPT_DIR"
 # Specify log file location
 LOG_FILE="../anvil.log"
 
+if [[ "$1" == "-n" ]]; then
+echo "anvil no caching"
+anvil -f $RPC_URL --chain-id 31337 --block-time 1 --port 8545 --no-storage-caching --accounts 10  >"$LOG_FILE" 2>&1 &
+else
+  echo "anvil with caching"
+  anvil -f $RPC_URL --chain-id 31337 --block-time 1 --port 8545 --accounts 10  >"$LOG_FILE" 2>&1 &
+fi
+
 # Start anvil in the background and redirect all output to log file
-anvil -f $RPC_URL --chain-id 31337 --block-time 1 --port 8545 --accounts 10 >"$LOG_FILE" 2>&1 &
+
 
 # # Get the PID of the anvil process
 ANVIL_PID=$!
