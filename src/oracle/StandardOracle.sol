@@ -146,7 +146,9 @@ contract StandardOracle is IOracle, Ownable {
         PairMeasurement memory measurement = pairMeasurements[_pair];
 
         if (measurement.period == 0) {
-            revert AssetNotRegistered(_pair);
+            (address token0, address token1) = (IUniswapV2Pair(_pair).token0(), IUniswapV2Pair(_pair).token1());
+
+            revert AssetNotRegistered(_pair, token0, token1);
         }
 
         uint32 timeElapsed;

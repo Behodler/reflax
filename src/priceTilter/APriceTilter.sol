@@ -12,7 +12,7 @@ abstract contract APriceTilter is Ownable {
     address public flax;
     address pair;
     IOracle oracle;
-    uint256 constant SPOT = 1e10;
+    uint256 constant SPOT = 1e15;
     uint256 constant ONE = 1e18;
     //number between 1 and 10
     uint256 tiltRatio = 5;
@@ -25,6 +25,10 @@ abstract contract APriceTilter is Ownable {
 
     function setTiltRatio(uint256 ratio) public onlyOwner {
         tiltRatio = ratio;
+    }
+
+    function updateOracle() public {
+        oracle.update(flax, referenceToken, 0);
     }
 
     function setTokens(address _referenceToken, address _flax, address uniFactory) public onlyOwner {

@@ -24,3 +24,5 @@ script/addresses.json
 broadcast/
 wagmi/auto.ts
 AnvilID.txt
+*_flat.sol
+crytic*

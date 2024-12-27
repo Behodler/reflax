@@ -122,6 +122,8 @@ contract DeployContracts is Script {
 
         uint256 USDC_whaleBalance = USDC.balanceOf(constants.USDC_whale());
 
+        //TODO: NO FLAX/WETH PAIR
+
         //Buy USDC
         address[] memory path = new address[](2);
         IUniswapV2Router02 router = IUniswapV2Router02(constants.uniswapV2Router02_address());
@@ -197,7 +199,6 @@ contract DeployContracts is Script {
         require(upTo > 110, "anothe 2 factories");
         addContractName("refPair(FLX/Weth)", referencePairAddress);
         Flax.mintUnits(1000, referencePairAddress);
-        vm.deal(address(this), 100 ether);
         uniswapMaker.WETH().deposit{value: 1 ether}();
         uniswapMaker.WETH().transfer(referencePairAddress, 1 ether);
 
@@ -211,7 +212,11 @@ contract DeployContracts is Script {
 
         oracle.RegisterPair(referencePairAddress, 30);
 
+        address usdc_weth = uniswapMaker.factory().getPair(weth, address(USDC));
+        oracle.RegisterPair(usdc_weth, 30);
+
         priceTilter = new PriceTilter();
+        addContractName("priceTilter", address(priceTilter));
         priceTilter.setOracle(address(oracle));
         priceTilter.setTokens(address(uniswapMaker.WETH()), address(Flax), address(uniswapMaker.factory()));
         require(upTo > 120, "setTokens");
@@ -251,6 +256,11 @@ contract DeployContracts is Script {
         require(upTo > 150, "configure after");
         Flax.mintUnits(1000_000_000, address(vault));
         Flax.mintUnits(1000, msg.sender);
+        // vm.warp(vm.getBlockTimestamp() + 100);
+        // address(0).call{value: 0}("");
+        // vm.roll(block.number + 10); // Increment block number to ensure a new block with the updated timestamp
+
+        // vault.stake(200000000);
         vm.stopBroadcast();
     }
 }

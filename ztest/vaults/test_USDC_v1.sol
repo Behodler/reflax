@@ -302,7 +302,8 @@ contract test_USDC_v1 is Test {
 
     event BALANC(uint256 flaxBalanceBefore, uint256 flaxBalanceAfter);
 
-    function testClaim_with_zero_time_passes() public {
+    function testClaim_with_zero_time_passes(uint stakeAmount) public {
+        vm.assume(stakeAmount<10_000*ONE_USDC);
         uint256 upTo = envWithDefault("DebugUpTo", type(uint256).max);
         USDC.approve(address(vault), type(uint256).max);
         require(upTo > 100, "up to");

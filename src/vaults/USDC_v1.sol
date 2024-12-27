@@ -30,7 +30,6 @@ contract USDC_v1 is AVault {
         uint256 ethPerUSDC = config.oracle.hintUpdate(address(config.inputToken), address(0), 1000000);
         uint256 ethPerFlax = config.oracle.hintUpdate(address(config.flax), address(0), 1e18);
 
-
         flaxReward = USDC_v1_lib.calculate_derived_yield_increment(
             config.teraVirtualInputPerSecond, accounting.lastUpdate, block.timestamp, ethPerUSDC, ethPerFlax
         );

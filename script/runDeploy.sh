@@ -14,15 +14,14 @@ cd "$SCRIPT_DIR"
 LOG_FILE="../anvil.log"
 
 if [[ "$1" == "-n" ]]; then
-echo "anvil no caching"
-anvil -f $RPC_URL --chain-id 31337 --block-time 1 --port 8545 --no-storage-caching --accounts 10  >"$LOG_FILE" 2>&1 &
+  echo "anvil no caching"
+  anvil -f $RPC_URL --chain-id 31337 --block-time 1 --port 8545 --no-storage-caching --accounts 10 >"$LOG_FILE" 2>&1 &
 else
   echo "anvil with caching"
-  anvil -f $RPC_URL --chain-id 31337 --block-time 1 --port 8545 --accounts 10  >"$LOG_FILE" 2>&1 &
+  anvil -f $RPC_URL --chain-id 31337 --block-time 1 --port 8545 --accounts 10 >"$LOG_FILE" 2>&1 &
 fi
 
 # Start anvil in the background and redirect all output to log file
-
 
 # # Get the PID of the anvil process
 ANVIL_PID=$!
@@ -39,6 +38,17 @@ sleep 10
 echo $RPC_URL
 touch addresses.txt && rm addresses.txt && forge script --ffi --rpc-url=http://localhost:8545 ./DeployContracts.s.sol --slow -g 200 --gas-limit 8000000000 --via-ir --tc DeployContracts --broadcast --private-key 0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d
 # --verify
+TILTER_ADDRESS=$(node set_price_tilter_address.js)
+export TILTERADDRESS=$TILTER_ADDRESS
+echo $TILTER_ADDRESS
+
+echo "SLEEPING FOR 40"
+
+sleep 40
+
+echo "UPDATING ORACLE"
+
+forge script --ffi --rpc-url=http://localhost:8545 ./DeployContracts_oracleUpdate.s.sol --slow -g 200 --gas-limit 8000000000 --via-ir --tc UpdateOracle --broadcast --private-key 0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d
 
 echo "executing node script"
 # node updateRedis.js
